@@ -29,16 +29,13 @@ public class CommonProxy {
 
     @SubscribeEvent
     public static void registerItems(RegistryEvent.Register<Item> event) {
-        RegisterManager.getInstance().registerItems(event);
     }
 
     @SubscribeEvent
     public static void registerBlocks(RegistryEvent.Register<Block> event) {
-        RegisterManager.getInstance().registerBlocks(event);
     }
 
     @SubscribeEvent
     public static void registerEntities(RegistryEvent.Register<EntityEntry> event) {
-        RegisterManager.getInstance().registerEntities(event);
     }
 }

@@ -18,15 +18,13 @@ import net.minecraftforge.fml.common.discovery.ASMDataTable;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
 import net.minecraftforge.oredict.OreDictionary;
+import net.minecraftforge.registries.IForgeRegistryEntry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -40,8 +38,13 @@ public class RegisterManager {
     private List<Item> items = new ArrayList<>();
     private List<Block> blocks = new ArrayList<>();
     private List<Pair<Field, Object>> oreDictElements = new ArrayList<>();
-    private List<Class<? extends Entity>> entities = new ArrayList<>();
+
     private List<Class<?>> entityRenderers = new ArrayList<>();
+    private List<EntityEntry> entities = new ArrayList<>();
+
+    private Map<String, List<Item>> itemMap = new HashMap<>();
+    private Map<String, List<Block>> blockMap = new HashMap<>();
+    private Map<String, List<EntityEntry>> entityMap = new HashMap<>();
 
     private RegisterManager() {
         registerBehavior.add(((field, o) -> {
@@ -63,6 +66,9 @@ public class RegisterManager {
     public void processRegistries(ASMDataTable asmDataTable) throws IllegalAccessException, ClassNotFoundException {
         normalRegistries(asmDataTable);
         entitiesRegistries(asmDataTable);
+        filterElements(items, itemMap);
+        filterElements(blocks, blockMap);
+        filterElements(entities, entityMap);
     }
 
     private void normalRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException, IllegalAccessException {
@@ -76,61 +82,17 @@ public class RegisterManager {
     }
 
     private void entitiesRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException, ClassCastException {
+        List<Class<? extends Entity>> entityClasses = new ArrayList<>();
         for (ASMDataTable.ASMData asmData : asmDataTable.getAll(EntityRegistry.class.getName())) {
             Class<?> clz = Class.forName(asmData.getClassName());
             Class<? extends Entity> e = clz.asSubclass(Entity.class);
-            entities.add(e);
+            entityClasses.add(e);
         }
         for (ASMDataTable.ASMData asmData : asmDataTable.getAll(EntityRenderer.class.getName())) {
             Class<?> clz = Class.forName(asmData.getClassName());
             entityRenderers.add(clz);
         }
-    }
-
-    public void registerItems(RegistryEvent.Register<Item> event) {
-        items.forEach(item -> event.getRegistry().register(item));
-        blocks.stream()
-                .map(block -> {
-                    ItemBlock i = new ItemBlock(block);
-                    i.setRegistryName(Objects.requireNonNull(block.getRegistryName()));
-                    return i;
-                })
-                .collect(Collectors.toList())
-                .forEach(itemBlock -> event.getRegistry().register(itemBlock));
-    }
-
-    public void registerItemModel(ModelRegistryEvent event) {
-        items.forEach(item -> ModelLoader.setCustomModelResourceLocation(item,
-                0,
-                new ModelResourceLocation(Objects.requireNonNull(item.getRegistryName()), "inventory")));
-    }
-
-    public void registerBlocks(RegistryEvent.Register<Block> event) {
-        blocks.forEach(block -> event.getRegistry().register(block));
-    }
-
-    public void registerBlockModel(ModelRegistryEvent event) {
-        blocks.forEach(block -> ModelLoader.setCustomModelResourceLocation(Item.getItemFromBlock(block),
-                0,
-                new ModelResourceLocation(Objects.requireNonNull(block.getRegistryName()), "inventory")));
-    }
-
-    public void registerOreDict() {
-        for (Pair<Field, Object> p : oreDictElements) {
-            OreDict oreDict = p.getLeft().getAnnotation(OreDict.class);
-            Object o = p.getRight();
-            if (o instanceof Item) {
-                OreDictionary.registerOre(oreDict.key(), (Item) o);
-            } else if (o instanceof Block) {
-                OreDictionary.registerOre(oreDict.key(), (Block) o);
-            } else {
-                DawnFoundation.getLogger().warn("Type {} is not supported register ore dict,ignore", o.getClass().getName());
-            }
-        }
-    }
-
-    public void registerEntities(RegistryEvent.Register<EntityEntry> event) {
-        entities.stream()
+        List<EntityEntry> entries = entityClasses.stream()
                 .map(entityClass -> {
                     EntityRegistry anno = entityClass.getAnnotation(EntityRegistry.class);
                     EntityEntryBuilder<Entity> builder = EntityEntryBuilder.create()
@@ -155,8 +117,75 @@ public class RegisterManager {
                     }
                     return builder.build();
                 })
+                .collect(Collectors.toList());
+        entities.addAll(entries);
+    }
+
+    private <T extends IForgeRegistryEntry.Impl<T>> void filterElements(List<T> list, Map<String, List<T>> map) {
+        list.forEach(element -> {
+            ResourceLocation location = element.getRegistryName();
+            if (location == null) {
+                DawnFoundation.getLogger().warn("ResourceLocation of type {} is null,ignore.", element.getRegistryType().getName());
+            } else {
+                if (map.containsKey(location.getNamespace())) {
+                    List<T> l = map.get(location.getNamespace());
+                    l.add(element);
+                } else {
+                    List<T> l = new ArrayList<>();
+                    l.add(element);
+                    map.put(location.getNamespace(), l);
+                }
+            }
+        });
+    }
+
+    @Deprecated
+    public void registerItems(RegistryEvent.Register<Item> event) {
+        items.forEach(item -> event.getRegistry().register(item));
+        blocks.stream()
+                .map(block -> {
+                    ItemBlock i = new ItemBlock(block);
+                    i.setRegistryName(Objects.requireNonNull(block.getRegistryName()));
+                    return i;
+                })
                 .collect(Collectors.toList())
-                .forEach(entityEntry -> event.getRegistry().register(entityEntry));
+                .forEach(itemBlock -> event.getRegistry().register(itemBlock));
+    }
+
+    public void registerItemModel(ModelRegistryEvent event) {
+        items.forEach(item -> ModelLoader.setCustomModelResourceLocation(item,
+                0,
+                new ModelResourceLocation(Objects.requireNonNull(item.getRegistryName()), "inventory")));
+    }
+
+    @Deprecated
+    public void registerBlocks(RegistryEvent.Register<Block> event) {
+        blocks.forEach(block -> event.getRegistry().register(block));
+    }
+
+    public void registerBlockModel(ModelRegistryEvent event) {
+        blocks.forEach(block -> ModelLoader.setCustomModelResourceLocation(Item.getItemFromBlock(block),
+                0,
+                new ModelResourceLocation(Objects.requireNonNull(block.getRegistryName()), "inventory")));
+    }
+
+    public void registerOreDict() {
+        for (Pair<Field, Object> p : oreDictElements) {
+            OreDict oreDict = p.getLeft().getAnnotation(OreDict.class);
+            Object o = p.getRight();
+            if (o instanceof Item) {
+                OreDictionary.registerOre(oreDict.key(), (Item) o);
+            } else if (o instanceof Block) {
+                OreDictionary.registerOre(oreDict.key(), (Block) o);
+            } else {
+                DawnFoundation.getLogger().warn("Type {} is not supported register ore dict,ignore", o.getClass().getName());
+            }
+        }
+    }
+
+    @Deprecated
+    public void registerEntities(RegistryEvent.Register<EntityEntry> event) {
+        entities.forEach(entityEntry -> event.getRegistry().register(entityEntry));
     }
 
     @SuppressWarnings("unchecked")
@@ -171,6 +200,36 @@ public class RegisterManager {
                 }
             });
         });
+    }
+
+    public void registerItems(String modId, RegistryEvent.Register<Item> event) {
+        checkMap(modId, itemMap);
+        checkMap(modId, blockMap);
+        itemMap.get(modId).forEach(item -> event.getRegistry().register(item));
+        blockMap.get(modId).stream()
+                .map(block -> {
+                    ItemBlock i = new ItemBlock(block);
+                    i.setRegistryName(Objects.requireNonNull(block.getRegistryName()));
+                    return i;
+                })
+                .collect(Collectors.toList())
+                .forEach(itemBlock -> event.getRegistry().register(itemBlock));
+    }
+
+    public void registerBlocks(String modId, RegistryEvent.Register<Block> event) {
+        checkMap(modId, blockMap);
+        blocks.forEach(block -> event.getRegistry().register(block));
+    }
+
+    public void registerEntities(String modId, RegistryEvent.Register<EntityEntry> event) {
+        checkMap(modId, entityMap);
+        entityMap.get(modId).forEach(entityEntry -> event.getRegistry().register(entityEntry));
+    }
+
+    private <T> void checkMap(String modId, Map<String, T> map) {
+        if (!map.containsKey(modId)) {
+            throw new IllegalArgumentException("Can't find MOD ID:" + modId);
+        }
     }
 
     public static RegisterManager getInstance() {

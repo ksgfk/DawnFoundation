@@ -1,5 +1,6 @@
 package com.github.ksgfk.dawnfoundation;
 
+import com.github.ksgfk.dawnfoundation.api.annotations.RegisterManager;
 import com.github.ksgfk.dawnfoundation.common.CommonProxy;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
@@ -49,6 +50,7 @@ public enum DawnFoundation {
 
     @Mod.EventHandler
     public void gameStart(FMLLoadCompleteEvent event) {
+        RegisterManager.clean();
     }
 
     @Mod.InstanceFactory
