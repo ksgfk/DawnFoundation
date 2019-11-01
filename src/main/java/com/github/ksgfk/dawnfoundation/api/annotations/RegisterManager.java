@@ -1,6 +1,7 @@
 package com.github.ksgfk.dawnfoundation.api.annotations;
 
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
+import com.github.ksgfk.dawnfoundation.api.utility.Func3;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.entity.Render;
@@ -14,69 +15,78 @@ import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.discovery.ASMDataTable;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
 import net.minecraftforge.oredict.OreDictionary;
-import net.minecraftforge.registries.IForgeRegistryEntry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
-import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 /**
+ * 注册管理者，生命周期到 {@link net.minecraftforge.fml.common.event.FMLLoadCompleteEvent} 事件触发时结束
+ * 超出生命周期时再获取单例将会返回Null
+ *
  * @author KSGFK create in 2019/10/21
  */
 public class RegisterManager {
     private static RegisterManager instance = new RegisterManager();
 
-    private List<BiConsumer<Field, Object>> registerBehavior = new ArrayList<>();
-    private List<Item> items = new ArrayList<>();
-    private List<Block> blocks = new ArrayList<>();
+    private List<Func3<String, Field, Object>> registerBehavior = new ArrayList<>();
     private List<Pair<Field, Object>> oreDictElements = new ArrayList<>();
-
     private List<Class<?>> entityRenderers = new ArrayList<>();
-    private List<EntityEntry> entities = new ArrayList<>();
 
     private Map<String, List<Item>> itemMap = new HashMap<>();
     private Map<String, List<Block>> blockMap = new HashMap<>();
-    private Map<String, List<EntityEntry>> entityMap = new HashMap<>();
+    private Map<String, List<Pair<EntityEntryBuilder<Entity>, EntityRegistry>>> entityMap = new HashMap<>();
 
     private RegisterManager() {
-        registerBehavior.add(((field, o) -> {
+        registerBehavior.add(((domain, field, o) -> {
             if (o instanceof Item) {
-                items.add((Item) o);
+                addToMap(domain, (Item) o, itemMap);
             } else if (o instanceof Block) {
-                blocks.add((Block) o);
+                addToMap(domain, (Block) o, blockMap);
             } else {
                 DawnFoundation.getLogger().warn("Type {} is not supported auto register,ignore", o.getClass().getName());
             }
         }));
-        registerBehavior.add(((field, o) -> {
+        registerBehavior.add(((domain, field, o) -> {
             if (field.isAnnotationPresent(OreDict.class)) {
                 oreDictElements.add(ImmutablePair.of(field, o));
             }
         }));
     }
 
+    private <T> void addToMap(String key, T value, Map<String, List<T>> map) {
+        if (map.containsKey(key)) {
+            map.get(key).add(value);
+        } else {
+            List<T> l = new ArrayList<>();
+            l.add(value);
+            map.put(key, l);
+        }
+    }
+
+    /**
+     * 不需要手动调用该方法，已统一注册
+     */
     public void processRegistries(ASMDataTable asmDataTable) throws IllegalAccessException, ClassNotFoundException {
         normalRegistries(asmDataTable);
         entitiesRegistries(asmDataTable);
-        filterElements(items, itemMap);
-        filterElements(blocks, blockMap);
-        filterElements(entities, entityMap);
     }
 
     private void normalRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException, IllegalAccessException {
         for (ASMDataTable.ASMData asmData : asmDataTable.getAll(Registry.class.getName())) {
             Class<?> clz = Class.forName(asmData.getClassName());
+            Registry anno = clz.getAnnotation(Registry.class);
             for (Field registry : clz.getFields()) {
                 Object registryInstance = registry.get(null);
-                registerBehavior.forEach((callback) -> callback.accept(registry, registryInstance));
+                registerBehavior.forEach((callback) -> callback.invoke(anno.modId(), registry, registryInstance));
             }
         }
     }
@@ -88,11 +98,13 @@ public class RegisterManager {
             Class<? extends Entity> e = clz.asSubclass(Entity.class);
             entityClasses.add(e);
         }
-        for (ASMDataTable.ASMData asmData : asmDataTable.getAll(EntityRenderer.class.getName())) {
-            Class<?> clz = Class.forName(asmData.getClassName());
-            entityRenderers.add(clz);
+        if (FMLCommonHandler.instance().getEffectiveSide().isClient()) {
+            for (ASMDataTable.ASMData asmData : asmDataTable.getAll(EntityRenderer.class.getName())) {
+                Class<?> clz = Class.forName(asmData.getClassName());
+                entityRenderers.add(clz);
+            }
         }
-        List<EntityEntry> entries = entityClasses.stream()
+        entityClasses.stream()
                 .map(entityClass -> {
                     EntityRegistry anno = entityClass.getAnnotation(EntityRegistry.class);
                     EntityEntryBuilder<Entity> builder = EntityEntryBuilder.create()
@@ -115,60 +127,43 @@ public class RegisterManager {
                                 .collect(Collectors.toList());
                         builder.spawn(anno.creatureType(), anno.weight(), anno.min(), anno.max(), biomes);
                     }
-                    return builder.build();
-                })
-                .collect(Collectors.toList());
-        entities.addAll(entries);
-    }
-
-    private <T extends IForgeRegistryEntry.Impl<T>> void filterElements(List<T> list, Map<String, List<T>> map) {
-        list.forEach(element -> {
-            ResourceLocation location = element.getRegistryName();
-            if (location == null) {
-                DawnFoundation.getLogger().warn("ResourceLocation of type {} is null,ignore.", element.getRegistryType().getName());
-            } else {
-                if (map.containsKey(location.getNamespace())) {
-                    List<T> l = map.get(location.getNamespace());
-                    l.add(element);
-                } else {
-                    List<T> l = new ArrayList<>();
-                    l.add(element);
-                    map.put(location.getNamespace(), l);
-                }
-            }
-        });
-    }
-
-    @Deprecated
-    public void registerItems(RegistryEvent.Register<Item> event) {
-        items.forEach(item -> event.getRegistry().register(item));
-        blocks.stream()
-                .map(block -> {
-                    ItemBlock i = new ItemBlock(block);
-                    i.setRegistryName(Objects.requireNonNull(block.getRegistryName()));
-                    return i;
+                    return ImmutablePair.of(builder, anno);
                 })
                 .collect(Collectors.toList())
-                .forEach(itemBlock -> event.getRegistry().register(itemBlock));
+                .forEach(pair -> addToMap(pair.getRight().modId(), pair, entityMap));
     }
 
+    /**
+     * 不需要手动调用该方法，已统一注册
+     */
     public void registerItemModel(ModelRegistryEvent event) {
+        for (Map.Entry<String, List<Item>> pair : itemMap.entrySet()) {
+            registerItemModelList(pair.getValue());
+        }
+    }
+
+    /**
+     * 不需要手动调用该方法，已统一注册
+     */
+    public void registerBlockModel(ModelRegistryEvent event) {
+        for (Map.Entry<String, List<Block>> pair : blockMap.entrySet()) {
+            registerItemModelList(pair
+                    .getValue()
+                    .stream()
+                    .map(Item::getItemFromBlock)
+                    .collect(Collectors.toList()));
+        }
+    }
+
+    private static void registerItemModelList(List<Item> items) {
         items.forEach(item -> ModelLoader.setCustomModelResourceLocation(item,
                 0,
                 new ModelResourceLocation(Objects.requireNonNull(item.getRegistryName()), "inventory")));
     }
 
-    @Deprecated
-    public void registerBlocks(RegistryEvent.Register<Block> event) {
-        blocks.forEach(block -> event.getRegistry().register(block));
-    }
-
-    public void registerBlockModel(ModelRegistryEvent event) {
-        blocks.forEach(block -> ModelLoader.setCustomModelResourceLocation(Item.getItemFromBlock(block),
-                0,
-                new ModelResourceLocation(Objects.requireNonNull(block.getRegistryName()), "inventory")));
-    }
-
+    /**
+     * 不需要手动调用该方法，已统一注册
+     */
     public void registerOreDict() {
         for (Pair<Field, Object> p : oreDictElements) {
             OreDict oreDict = p.getLeft().getAnnotation(OreDict.class);
@@ -183,11 +178,9 @@ public class RegisterManager {
         }
     }
 
-    @Deprecated
-    public void registerEntities(RegistryEvent.Register<EntityEntry> event) {
-        entities.forEach(entityEntry -> event.getRegistry().register(entityEntry));
-    }
-
+    /**
+     * 不需要手动调用该方法，已统一注册
+     */
     @SuppressWarnings("unchecked")
     public void bindEntityModel(ModelRegistryEvent event) {
         entityRenderers.forEach(renderer -> {
@@ -202,31 +195,67 @@ public class RegisterManager {
         });
     }
 
+    /**
+     * 在 {@link net.minecraftforge.event.RegistryEvent.Register<Item>} 阶段调用该方法
+     *
+     * @param modId 注册物品的modid
+     * @param event 注册事件
+     */
     public void registerItems(String modId, RegistryEvent.Register<Item> event) {
         checkMap(modId, itemMap);
         checkMap(modId, blockMap);
-        itemMap.get(modId).forEach(item -> event.getRegistry().register(item));
+        itemMap.get(modId).forEach(item -> {
+            if (item instanceof IDomainName) {
+                item.setRegistryName(((IDomainName) item).getDomainName());
+            } else {
+                DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName", item.getClass().getName());
+            }
+            event.getRegistry().register(item);
+        });
         blockMap.get(modId).stream()
                 .map(block -> {
-                    ItemBlock i = new ItemBlock(block);
-                    i.setRegistryName(Objects.requireNonNull(block.getRegistryName()));
-                    return i;
+                    if (block instanceof IDomainName) {
+                        ItemBlock i = new ItemBlock(block);
+                        i.setRegistryName(((IDomainName) block).getDomainName());
+                        return i;
+                    } else {
+                        throw new IllegalArgumentException("Type " + block.getClass().getName() + " unimplemented interface IDomainName");
+                    }
                 })
                 .collect(Collectors.toList())
                 .forEach(itemBlock -> event.getRegistry().register(itemBlock));
     }
 
+    /**
+     * 在 {@link net.minecraftforge.event.RegistryEvent.Register<Block>} 阶段调用该方法
+     *
+     * @param modId 注册物品的modid
+     * @param event 注册事件
+     */
     public void registerBlocks(String modId, RegistryEvent.Register<Block> event) {
         checkMap(modId, blockMap);
-        blocks.forEach(block -> event.getRegistry().register(block));
+        blockMap.get(modId).forEach(block -> {
+            if (block instanceof IDomainName) {
+                block.setRegistryName(((IDomainName) block).getDomainName());
+            } else {
+                DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName", block.getClass().getName());
+            }
+            event.getRegistry().register(block);
+        });
     }
 
+    /**
+     * 在 {@link net.minecraftforge.event.RegistryEvent.Register<EntityEntry>} 阶段调用该方法
+     *
+     * @param modId 注册物品的modid
+     * @param event 注册事件
+     */
     public void registerEntities(String modId, RegistryEvent.Register<EntityEntry> event) {
         checkMap(modId, entityMap);
-        entityMap.get(modId).forEach(entityEntry -> event.getRegistry().register(entityEntry));
+        entityMap.get(modId).forEach(entityEntry -> event.getRegistry().register(entityEntry.getLeft().build()));
     }
 
-    private <T> void checkMap(String modId, Map<String, T> map) {
+    private static <T> void checkMap(String modId, Map<String, T> map) {
         if (!map.containsKey(modId)) {
             throw new IllegalArgumentException("Can't find MOD ID:" + modId);
         }
@@ -236,6 +265,9 @@ public class RegisterManager {
         return instance;
     }
 
+    /**
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.fml.common.event.FMLLoadCompleteEvent} 自动释放资源
+     */
     public static void clean() {
         instance = null;
     }
