@@ -15,7 +15,7 @@ apply plugin: "net.minecraftforge.gradle.forge"
 
 version = modVersion
 group = modGroup
-archivesBaseName = modBaseName + forgeVersion + modVersion
+archivesBaseName = modBaseName + "-1.12.2"
 
 minecraft {
     version = project.forgeVersion
