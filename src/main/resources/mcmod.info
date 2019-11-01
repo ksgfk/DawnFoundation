@@ -1,0 +1,18 @@
+[
+  {
+    "modid": "dawnfoundation",
+    "name": "DawnFoundation",
+    "description": "A base mod.Contains many tools",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "https://github.com/ksgfk/",
+    "updateUrl": "",
+    "authorList": [
+      "ksgfk"
+    ],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
