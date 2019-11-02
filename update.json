@@ -1,10 +1,13 @@
 {
-  "homepage": "https://github.com/KABI0210/AnimalWorldX/releases",
+  "homepage": "https://github.com/ksgfk/DawnFoundation/releases",
   "1.12.2": {
-    "0.0.1": "什么都没有:)"
+    "0.0.1": "支持Block、Item、Entity自动注册",
+    "0.0.2": "修改注册流程",
+    "0.0.3": "重写可注册元素获取流程，setRegisteryName方法推迟到需要该前置的mod注册元素时才调用，否则会出警告",
+    "0.0.4": "添加Github Release更新检查"
   },
   "promos": {
-    "1.12.2-latest": "0.0.1",
-    "1.12.2-recommended": "0.0.1"
+    "1.12.2-latest": "0.0.4",
+    "1.12.2-recommended": "0.0.4"
   }
 }

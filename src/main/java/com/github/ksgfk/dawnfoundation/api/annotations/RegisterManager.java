@@ -1,7 +1,7 @@
 package com.github.ksgfk.dawnfoundation.api.annotations;
 
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
-import com.github.ksgfk.dawnfoundation.api.utility.Func3;
+import com.github.ksgfk.dawnfoundation.api.utility.Action3;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.entity.Render;
@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 public class RegisterManager {
     private static RegisterManager instance = new RegisterManager();
 
-    private List<Func3<String, Field, Object>> registerBehavior = new ArrayList<>();
+    private List<Action3<String, Field, Object>> registerBehavior = new ArrayList<>();
     private List<Pair<Field, Object>> oreDictElements = new ArrayList<>();
     private List<Class<?>> entityRenderers = new ArrayList<>();
 

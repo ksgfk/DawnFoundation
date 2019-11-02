@@ -1,6 +1,7 @@
 package com.github.ksgfk.dawnfoundation;
 
 import com.github.ksgfk.dawnfoundation.api.annotations.RegisterManager;
+import com.github.ksgfk.dawnfoundation.api.utility.GithubReleaseUpdateCheck;
 import com.github.ksgfk.dawnfoundation.common.CommonProxy;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
@@ -17,7 +18,8 @@ import org.apache.logging.log4j.Logger;
 @Mod(
         modid = DawnFoundation.MOD_ID,
         name = DawnFoundation.MOD_NAME,
-        version = DawnFoundation.VERSION
+        version = DawnFoundation.VERSION,
+        updateJSON = DawnFoundation.RELEASE
 )
 public enum DawnFoundation {
     INSTANCE;
@@ -27,6 +29,8 @@ public enum DawnFoundation {
     public static final String VERSION = "@version@";
     public static final String CLIENT = "com.github.ksgfk.dawnfoundation.client.ClientProxy";
     public static final String COMMON = "com.github.ksgfk.dawnfoundation.common.CommonProxy";
+    public static final String UPDATE = "https://api.github.com/repos/ksgfk/DawnFoundation/releases";
+    public static final String RELEASE = "https://github.com/ksgfk/DawnFoundation/blob/master/update.json";
 
     private static Logger logger = LogManager.getLogger(MOD_ID);
 
@@ -51,6 +55,7 @@ public enum DawnFoundation {
     @Mod.EventHandler
     public void gameStart(FMLLoadCompleteEvent event) {
         RegisterManager.clean();
+        GithubReleaseUpdateCheck.getInstance().startCheck(MOD_ID, UPDATE, VERSION, true, logger, null);
     }
 
     @Mod.InstanceFactory
