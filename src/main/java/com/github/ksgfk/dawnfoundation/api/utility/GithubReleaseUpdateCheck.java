@@ -132,12 +132,13 @@ public class GithubReleaseUpdateCheck {
                 if (preCanUpdate && prerelease) {
                     if (latest.compareTo(now) > 0) {
                         i.canUpdate = true;
-                        break;
                     }
-                } else if (!prerelease && latest.compareTo(now) > 0) {
-                    i.canUpdate = true;
-                    break;
+                } else if (!prerelease) {
+                    if (latest.compareTo(now) > 0) {
+                        i.canUpdate = true;
+                    }
                 }
+                break;
             }
             String r = "Latest:" + i.latest + "\tPre:" + i.latestPre;
             if (i.canUpdate) {
