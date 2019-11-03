@@ -6,6 +6,6 @@ package com.github.ksgfk.dawnfoundation.api.annotations;
  *
  * @author KSGFK create in 2019/11/3
  */
-public interface IModelRegister {
+public interface IModelRegistry {
     void registerModel();
 }

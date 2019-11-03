@@ -20,6 +20,7 @@ import net.minecraftforge.fml.common.discovery.ASMDataTable;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
 import net.minecraftforge.oredict.OreDictionary;
+import net.minecraftforge.registries.IForgeRegistryEntry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -157,8 +158,8 @@ public class RegisterManager {
 
     private static void registerItemModelList(List<Item> items) {
         items.forEach(item -> {
-            if (item instanceof IModelRegister) {
-                ((IModelRegister) item).registerModel();
+            if (item instanceof IModelRegistry) {
+                ((IModelRegistry) item).registerModel();
             } else {
                 ModelLoader.setCustomModelResourceLocation(item,
                         0,
@@ -201,6 +202,24 @@ public class RegisterManager {
         });
     }
 
+    @SuppressWarnings("unchecked")
+    private <T extends IForgeRegistryEntry.Impl<T>> void registerFunction(T instance, RegistryEvent.Register<T> event) {
+        if (instance instanceof IDomainName) {
+            if (instance instanceof IMultiRegisters) {
+                List<IForgeRegistryEntry> o = ((IMultiRegisters) instance).getRegisters();
+                for (IForgeRegistryEntry i : o) {
+                    i.setRegistryName(((IDomainName) i).getDomainName());
+                    event.getRegistry().register((T) i);
+                }
+            } else {
+                instance.setRegistryName(((IDomainName) instance).getDomainName());
+                event.getRegistry().register(instance);
+            }
+        } else {
+            DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName,ignore", instance.getClass().getName());
+        }
+    }
+
     /**
      * 在 {@link net.minecraftforge.event.RegistryEvent.Register<Item>} 阶段调用该方法
      *
@@ -210,26 +229,33 @@ public class RegisterManager {
     public void registerItems(String modId, RegistryEvent.Register<Item> event) {
         checkMap(modId, itemMap);
         checkMap(modId, blockMap);
-        itemMap.get(modId).forEach(item -> {
-            if (item instanceof IDomainName) {
-                item.setRegistryName(((IDomainName) item).getDomainName());
-            } else {
-                DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName", item.getClass().getName());
-            }
-            event.getRegistry().register(item);
-        });
-        blockMap.get(modId).stream()
-                .map(block -> {
-                    if (block instanceof IDomainName) {
-                        ItemBlock i = new ItemBlock(block);
-                        i.setRegistryName(((IDomainName) block).getDomainName());
-                        return i;
-                    } else {
-                        throw new IllegalArgumentException("Type " + block.getClass().getName() + " unimplemented interface IDomainName");
+        for (Item item : itemMap.get(modId)) {
+            registerFunction(item, event);
+        }
+        for (Block b : blockMap.get(modId)) {
+            if (b instanceof IDomainName) {
+                if (b instanceof IMultiRegisters) {
+                    List o = ((IMultiRegisters) instance).getRegisters();
+                    for (Object block : o) {
+                        if (block instanceof Block) {
+                            event.getRegistry().register(getItemBlock((Block) block));
+                        } else {
+                            DawnFoundation.getLogger().warn("Type {} isn't Block,ignore", instance.getClass().getName());
+                        }
                     }
-                })
-                .collect(Collectors.toList())
-                .forEach(itemBlock -> event.getRegistry().register(itemBlock));
+                } else {
+                    event.getRegistry().register(getItemBlock(b));
+                }
+            } else {
+                DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName,ignore", instance.getClass().getName());
+            }
+        }
+    }
+
+    private static ItemBlock getItemBlock(Block block) {
+        ItemBlock i = new ItemBlock(block);
+        i.setRegistryName(((IDomainName) block).getDomainName());
+        return i;
     }
 
     /**
@@ -240,14 +266,9 @@ public class RegisterManager {
      */
     public void registerBlocks(String modId, RegistryEvent.Register<Block> event) {
         checkMap(modId, blockMap);
-        blockMap.get(modId).forEach(block -> {
-            if (block instanceof IDomainName) {
-                block.setRegistryName(((IDomainName) block).getDomainName());
-            } else {
-                DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName", block.getClass().getName());
-            }
-            event.getRegistry().register(block);
-        });
+        for (Block block : blockMap.get(modId)) {
+            registerFunction(block, event);
+        }
     }
 
     /**
