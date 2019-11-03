@@ -23,6 +23,7 @@ import java.util.function.Consumer;
  */
 public class GithubReleaseUpdateCheck {
     private static GithubReleaseUpdateCheck instance = new GithubReleaseUpdateCheck();
+    private static int threadId = 0;
 
     private ExecutorService pool;
     private ConcurrentHashMap<String, UpdateInfo> info = new ConcurrentHashMap<>();
@@ -33,7 +34,7 @@ public class GithubReleaseUpdateCheck {
                 6000,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                r -> new Thread(r, "UpdateCheck"));
+                r -> new Thread(r, "UpdateCheck-" + threadId++));
     }
 
     public static GithubReleaseUpdateCheck getInstance() {

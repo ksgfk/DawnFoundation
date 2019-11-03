@@ -156,9 +156,15 @@ public class RegisterManager {
     }
 
     private static void registerItemModelList(List<Item> items) {
-        items.forEach(item -> ModelLoader.setCustomModelResourceLocation(item,
-                0,
-                new ModelResourceLocation(Objects.requireNonNull(item.getRegistryName()), "inventory")));
+        items.forEach(item -> {
+            if (item instanceof IModelRegister) {
+                ((IModelRegister) item).registerModel();
+            } else {
+                ModelLoader.setCustomModelResourceLocation(item,
+                        0,
+                        new ModelResourceLocation(Objects.requireNonNull(item.getRegistryName()), "inventory"));
+            }
+        });
     }
 
     /**
