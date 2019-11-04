@@ -4,6 +4,7 @@ import com.github.ksgfk.dawnfoundation.api.annotations.RegisterManager;
 import com.github.ksgfk.dawnfoundation.common.CommonProxy;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
@@ -11,6 +12,12 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  */
 @Mod.EventBusSubscriber
 public class ClientProxy extends CommonProxy {
+    @Override
+    public void init(FMLInitializationEvent event) {
+        super.init(event);
+        RegisterManager.getInstance().registerTESR(event);
+    }
+
     @SubscribeEvent
     public static void bindEntitiesRenderer(ModelRegistryEvent event) {
         RegisterManager.getInstance().bindEntityModel(event);

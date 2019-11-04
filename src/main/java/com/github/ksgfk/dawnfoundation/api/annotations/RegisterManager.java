@@ -6,19 +6,24 @@ import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.discovery.ASMDataTable;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
+import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.registries.IForgeRegistryEntry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -41,10 +46,12 @@ public class RegisterManager {
     private List<Action3<String, Field, Object>> registerBehavior = new ArrayList<>();
     private List<Pair<Field, Object>> oreDictElements = new ArrayList<>();
     private List<Class<?>> entityRenderers = new ArrayList<>();
+    private List<Class<?>> tesrRenderers = new ArrayList<>();
 
     private Map<String, List<Item>> itemMap = new HashMap<>();
     private Map<String, List<Block>> blockMap = new HashMap<>();
     private Map<String, List<Pair<EntityEntryBuilder<Entity>, EntityRegistry>>> entityMap = new HashMap<>();
+    private Map<String, List<Pair<Class<? extends TileEntity>, TileEntityRegistry>>> tileEntityMap = new HashMap<>();
 
     private RegisterManager() {
         registerBehavior.add(((domain, field, o) -> {
@@ -63,7 +70,7 @@ public class RegisterManager {
         }));
     }
 
-    private <T> void addToMap(String key, T value, Map<String, List<T>> map) {
+    private static <T> void addToMap(String key, T value, Map<String, List<T>> map) {
         if (map.containsKey(key)) {
             map.get(key).add(value);
         } else {
@@ -79,6 +86,7 @@ public class RegisterManager {
     public void processRegistries(ASMDataTable asmDataTable) throws IllegalAccessException, ClassNotFoundException {
         normalRegistries(asmDataTable);
         entitiesRegistries(asmDataTable);
+        tileEntityRegistries(asmDataTable);
     }
 
     private void normalRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException, IllegalAccessException {
@@ -132,6 +140,21 @@ public class RegisterManager {
                 })
                 .collect(Collectors.toList())
                 .forEach(pair -> addToMap(pair.getRight().modId(), pair, entityMap));
+    }
+
+    private void tileEntityRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException {
+        for (ASMDataTable.ASMData asmData : asmDataTable.getAll(TileEntityRegistry.class.getName())) {
+            Class<?> clz = Class.forName(asmData.getClassName());
+            Class<? extends TileEntity> e = clz.asSubclass(TileEntity.class);
+            TileEntityRegistry anno = clz.getAnnotation(TileEntityRegistry.class);
+            addToMap(anno.modId(), ImmutablePair.of(e, anno), tileEntityMap);
+        }
+        if (FMLCommonHandler.instance().getEffectiveSide().isClient()) {
+            for (ASMDataTable.ASMData asmData : asmDataTable.getAll(TESRRegistry.class.getName())) {
+                Class<?> clz = Class.forName(asmData.getClassName());
+                tesrRenderers.add(clz);
+            }
+        }
     }
 
     /**
@@ -190,7 +213,7 @@ public class RegisterManager {
      */
     @SuppressWarnings("unchecked")
     public void bindEntityModel(ModelRegistryEvent event) {
-        entityRenderers.forEach(renderer -> {
+        for (Class<?> renderer : entityRenderers) {
             EntityRenderer annotation = renderer.getAnnotation(EntityRenderer.class);
             RenderingRegistry.registerEntityRenderingHandler(annotation.entityClass(), manager -> {
                 try {
@@ -199,7 +222,7 @@ public class RegisterManager {
                     throw new IllegalArgumentException("Can't construct renderer:" + renderer.getName(), e);
                 }
             });
-        });
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -279,7 +302,41 @@ public class RegisterManager {
      */
     public void registerEntities(String modId, RegistryEvent.Register<EntityEntry> event) {
         checkMap(modId, entityMap);
-        entityMap.get(modId).forEach(entityEntry -> event.getRegistry().register(entityEntry.getLeft().build()));
+        for (Pair<EntityEntryBuilder<Entity>, EntityRegistry> entityEntry : entityMap.get(modId)) {
+            event.getRegistry().register(entityEntry.getLeft().build());
+        }
+    }
+
+    /**
+     * 在 {@link net.minecraftforge.event.RegistryEvent.Register<Block>} 阶段调用该方法
+     *
+     * @param modId 注册物品的modid
+     * @param event 注册事件
+     */
+    public void registerTileEntities(String modId, RegistryEvent.Register<Block> event) {
+        checkMap(modId, tileEntityMap);
+        for (Pair<Class<? extends TileEntity>, TileEntityRegistry> tile : tileEntityMap.get(modId)) {
+            TileEntityRegistry anno = tile.getRight();
+            GameRegistry.registerTileEntity(tile.getLeft(), new ResourceLocation(anno.modId(), anno.name()));
+        }
+    }
+
+    /**
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 自动注册
+     */
+    @SuppressWarnings("unchecked")
+    public void registerTESR(FMLInitializationEvent event) {
+        for (Class<?> tesr : tesrRenderers) {
+            TESRRegistry annotation = tesr.getAnnotation(TESRRegistry.class);
+            TileEntitySpecialRenderer<? super TileEntity> instance;
+            try {
+                instance = (TileEntitySpecialRenderer<? super TileEntity>) tesr.getConstructor().newInstance();
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                DawnFoundation.getLogger().error("Can't construct TESR Instance:{}", tesr.getName());
+                continue;
+            }
+            ClientRegistry.bindTileEntitySpecialRenderer(annotation.tileEntity(), instance);
+        }
     }
 
     private static <T> void checkMap(String modId, Map<String, T> map) {
