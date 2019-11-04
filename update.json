@@ -7,7 +7,9 @@
     "0.0.4": "添加Github Release更新检查",
     "0.0.4.1": "修复版本查找时会循环查找到最低版本的问题",
     "0.0.4.2": "自定义模型注册",
-    "0.0.5": "模仿Metadata注册多个Block、Item及模型但不使用Metadata"
+    "0.0.5": "模仿Metadata注册多个Block、Item及模型但不使用Metadata",
+    "0.0.6": "支持TileEntity、TESR自动注册",
+    "0.0.7": "自动注册GuiHandler类（好像没有什么用"
   },
   "promos": {
     "1.12.2-latest": "0.0.5",

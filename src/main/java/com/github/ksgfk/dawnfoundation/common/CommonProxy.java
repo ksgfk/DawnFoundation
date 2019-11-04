@@ -22,6 +22,7 @@ public class CommonProxy {
     }
 
     public void init(FMLInitializationEvent event) {
+        RegisterManager.getInstance().registerGuiHandlers();
     }
 
     public void postInit(FMLPostInitializationEvent event) {

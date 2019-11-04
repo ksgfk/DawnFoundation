@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
+import net.minecraft.network.NetworkManager;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
@@ -18,9 +19,11 @@ import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
-import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.*;
 import net.minecraftforge.fml.common.discovery.ASMDataTable;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.network.IGuiHandler;
+import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
 import net.minecraftforge.fml.common.registry.GameRegistry;
@@ -47,6 +50,7 @@ public class RegisterManager {
     private List<Pair<Field, Object>> oreDictElements = new ArrayList<>();
     private List<Class<?>> entityRenderers = new ArrayList<>();
     private List<Class<?>> tesrRenderers = new ArrayList<>();
+    private List<Pair<Class<?>, Object>> guiHandlers = new ArrayList<>();
 
     private Map<String, List<Item>> itemMap = new HashMap<>();
     private Map<String, List<Block>> blockMap = new HashMap<>();
@@ -87,6 +91,7 @@ public class RegisterManager {
         normalRegistries(asmDataTable);
         entitiesRegistries(asmDataTable);
         tileEntityRegistries(asmDataTable);
+        processGuiHandler(asmDataTable);
     }
 
     private void normalRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException, IllegalAccessException {
@@ -336,6 +341,37 @@ public class RegisterManager {
                 continue;
             }
             ClientRegistry.bindTileEntitySpecialRenderer(annotation.tileEntity(), instance);
+        }
+    }
+
+    private void processGuiHandler(ASMDataTable asmDataTable) throws ClassNotFoundException {
+        for (ASMDataTable.ASMData asmData : asmDataTable.getAll(GuiHandler.class.getName())) {
+            Class<?> clz = Class.forName(asmData.getClassName());
+            if (!clz.isAssignableFrom(IGuiHandler.class)) {
+                DawnFoundation.getLogger().error("Class {} doesn't extend from IGuiHandler", clz.getName());
+                continue;
+            }
+            GuiHandler handler = clz.getAnnotation(GuiHandler.class);
+            if (Loader.isModLoaded(handler.modId())) {
+                Map<String, ModContainer> indexedModList = Loader.instance().getIndexedModList();
+                ModContainer c = indexedModList.get(handler.modId());
+                guiHandlers.add(ImmutablePair.of(clz, c.getMod()));
+            } else {
+                DawnFoundation.getLogger().error("Mod {} wasn't loaded", handler.modId());
+            }
+        }
+    }
+
+    public void registerGuiHandlers() {
+        for (Pair<Class<?>, Object> t : guiHandlers) {
+            IGuiHandler instance;
+            try {
+                instance = (IGuiHandler) t.getLeft().getConstructor().newInstance();
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                DawnFoundation.getLogger().error("Can't construct GuiHandler Instance:{}", t.getLeft().getName());
+                continue;
+            }
+            NetworkRegistry.INSTANCE.registerGuiHandler(t.getRight(), instance);
         }
     }
 

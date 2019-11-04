@@ -2,11 +2,11 @@
   {
     "modid": "dawnfoundation",
     "name": "DawnFoundation",
-    "description": "A base mod.Contains many tools",
+    "description": "A library mod.Contains many tools.",
     "version": "${version}",
     "mcversion": "${mcversion}",
     "url": "https://github.com/ksgfk/",
-    "updateUrl": "",
+    "updateUrl": "https://github.com/ksgfk/DawnFoundation/releases",
     "authorList": [
       "ksgfk"
     ],
