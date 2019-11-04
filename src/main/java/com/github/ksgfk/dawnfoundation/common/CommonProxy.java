@@ -16,7 +16,7 @@ import net.minecraftforge.fml.common.registry.EntityEntry;
  */
 @Mod.EventBusSubscriber
 public class CommonProxy {
-    public void preInit(FMLPreInitializationEvent event) throws ClassNotFoundException, IllegalAccessException {
+    public void preInit(FMLPreInitializationEvent event) throws ClassNotFoundException, IllegalAccessException, NoSuchFieldException {
         RegisterManager.getInstance().processRegistries(event.getAsmData());
         RegisterManager.getInstance().registerOreDict();
     }

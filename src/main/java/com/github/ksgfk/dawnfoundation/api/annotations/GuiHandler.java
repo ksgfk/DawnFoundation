@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * @author KSGFK create in 2019/11/4
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
+@Target(ElementType.FIELD)
 public @interface GuiHandler {
     String modId();
 }

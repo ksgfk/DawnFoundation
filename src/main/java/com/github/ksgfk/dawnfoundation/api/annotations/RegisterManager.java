@@ -10,7 +10,6 @@ import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
-import net.minecraft.network.NetworkManager;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
@@ -19,7 +18,9 @@ import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
-import net.minecraftforge.fml.common.*;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 import net.minecraftforge.fml.common.discovery.ASMDataTable;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.network.IGuiHandler;
@@ -50,7 +51,7 @@ public class RegisterManager {
     private List<Pair<Field, Object>> oreDictElements = new ArrayList<>();
     private List<Class<?>> entityRenderers = new ArrayList<>();
     private List<Class<?>> tesrRenderers = new ArrayList<>();
-    private List<Pair<Class<?>, Object>> guiHandlers = new ArrayList<>();
+    private List<Pair<Object, ModContainer>> guiHandlers = new ArrayList<>();
 
     private Map<String, List<Item>> itemMap = new HashMap<>();
     private Map<String, List<Block>> blockMap = new HashMap<>();
@@ -87,7 +88,7 @@ public class RegisterManager {
     /**
      * 不需要手动调用该方法，已统一注册
      */
-    public void processRegistries(ASMDataTable asmDataTable) throws IllegalAccessException, ClassNotFoundException {
+    public void processRegistries(ASMDataTable asmDataTable) throws IllegalAccessException, ClassNotFoundException, NoSuchFieldException {
         normalRegistries(asmDataTable);
         entitiesRegistries(asmDataTable);
         tileEntityRegistries(asmDataTable);
@@ -344,18 +345,21 @@ public class RegisterManager {
         }
     }
 
-    private void processGuiHandler(ASMDataTable asmDataTable) throws ClassNotFoundException {
+    private void processGuiHandler(ASMDataTable asmDataTable) throws ClassNotFoundException, NoSuchFieldException, IllegalAccessException {
+        Map<String, ModContainer> indexedModList = Loader.instance().getIndexedModList();
         for (ASMDataTable.ASMData asmData : asmDataTable.getAll(GuiHandler.class.getName())) {
             Class<?> clz = Class.forName(asmData.getClassName());
-            if (!clz.isAssignableFrom(IGuiHandler.class)) {
+            Field field = clz.getDeclaredField(asmData.getObjectName());
+            field.setAccessible(true);
+            Object ins = field.get(null);
+            if (ins.getClass().isAssignableFrom(IGuiHandler.class)) {
                 DawnFoundation.getLogger().error("Class {} doesn't extend from IGuiHandler", clz.getName());
                 continue;
             }
-            GuiHandler handler = clz.getAnnotation(GuiHandler.class);
+            GuiHandler handler = field.getAnnotation(GuiHandler.class);
             if (Loader.isModLoaded(handler.modId())) {
-                Map<String, ModContainer> indexedModList = Loader.instance().getIndexedModList();
                 ModContainer c = indexedModList.get(handler.modId());
-                guiHandlers.add(ImmutablePair.of(clz, c.getMod()));
+                guiHandlers.add(ImmutablePair.of(ins, c));
             } else {
                 DawnFoundation.getLogger().error("Mod {} wasn't loaded", handler.modId());
             }
@@ -363,15 +367,8 @@ public class RegisterManager {
     }
 
     public void registerGuiHandlers() {
-        for (Pair<Class<?>, Object> t : guiHandlers) {
-            IGuiHandler instance;
-            try {
-                instance = (IGuiHandler) t.getLeft().getConstructor().newInstance();
-            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-                DawnFoundation.getLogger().error("Can't construct GuiHandler Instance:{}", t.getLeft().getName());
-                continue;
-            }
-            NetworkRegistry.INSTANCE.registerGuiHandler(t.getRight(), instance);
+        for (Pair<Object, ModContainer> t : guiHandlers) {
+            NetworkRegistry.INSTANCE.registerGuiHandler(t.getRight().getMod(), (IGuiHandler) t.getLeft());
         }
     }
 

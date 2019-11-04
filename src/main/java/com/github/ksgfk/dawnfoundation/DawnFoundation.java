@@ -38,7 +38,7 @@ public enum DawnFoundation {
     public static CommonProxy proxy;
 
     @Mod.EventHandler
-    public void preInit(FMLPreInitializationEvent event) throws IllegalAccessException, ClassNotFoundException {
+    public void preInit(FMLPreInitializationEvent event) throws IllegalAccessException, ClassNotFoundException, NoSuchFieldException {
         proxy.preInit(event);
     }
 
