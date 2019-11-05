@@ -10,10 +10,10 @@ import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
-import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
@@ -22,7 +22,6 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.ModContainer;
 import net.minecraftforge.fml.common.discovery.ASMDataTable;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.network.IGuiHandler;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.registry.EntityEntry;
@@ -48,10 +47,11 @@ public class RegisterManager {
     private static RegisterManager instance = new RegisterManager();
 
     private List<Action3<String, Field, Object>> registerBehavior = new ArrayList<>();
-    private List<Pair<Field, Object>> oreDictElements = new ArrayList<>();
-    private List<Class<?>> entityRenderers = new ArrayList<>();
-    private List<Class<?>> tesrRenderers = new ArrayList<>();
-    private List<Pair<Object, ModContainer>> guiHandlers = new ArrayList<>();
+    private List<Pair<Field, Object>> oreDictElements = new LinkedList<>();
+    private List<Class<?>> entityRenderers = new LinkedList<>();
+    private List<Class<?>> tesrRenderers = new LinkedList<>();
+    private List<Pair<Object, ModContainer>> guiHandlers = new LinkedList<>();
+    private List<Pair<Field, Object>> smeltables = new LinkedList<>();
 
     private Map<String, List<Item>> itemMap = new HashMap<>();
     private Map<String, List<Block>> blockMap = new HashMap<>();
@@ -73,6 +73,11 @@ public class RegisterManager {
                 oreDictElements.add(ImmutablePair.of(field, o));
             }
         }));
+        registerBehavior.add((domain, field, o) -> {
+            if (field.isAnnotationPresent(Smeltable.class)) {
+                smeltables.add(ImmutablePair.of(field, o));
+            }
+        });
     }
 
     private static <T> void addToMap(String key, T value, Map<String, List<T>> map) {
@@ -164,18 +169,18 @@ public class RegisterManager {
     }
 
     /**
-     * 不需要手动调用该方法，已统一注册
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.client.event.ModelRegistryEvent;} 自动注册
      */
-    public void registerItemModel(ModelRegistryEvent event) {
+    public void registerItemModel() {
         for (Map.Entry<String, List<Item>> pair : itemMap.entrySet()) {
             registerItemModelList(pair.getValue());
         }
     }
 
     /**
-     * 不需要手动调用该方法，已统一注册
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.client.event.ModelRegistryEvent;} 自动注册
      */
-    public void registerBlockModel(ModelRegistryEvent event) {
+    public void registerBlockModel() {
         for (Map.Entry<String, List<Block>> pair : blockMap.entrySet()) {
             registerItemModelList(pair
                     .getValue()
@@ -198,7 +203,7 @@ public class RegisterManager {
     }
 
     /**
-     * 不需要手动调用该方法，已统一注册
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.fml.common.event.FMLPreInitializationEvent} 自动注册
      */
     public void registerOreDict() {
         for (Pair<Field, Object> p : oreDictElements) {
@@ -218,7 +223,7 @@ public class RegisterManager {
      * 不需要手动调用该方法，已统一注册
      */
     @SuppressWarnings("unchecked")
-    public void bindEntityModel(ModelRegistryEvent event) {
+    public void bindEntityModel() {
         for (Class<?> renderer : entityRenderers) {
             EntityRenderer annotation = renderer.getAnnotation(EntityRenderer.class);
             RenderingRegistry.registerEntityRenderingHandler(annotation.entityClass(), manager -> {
@@ -331,7 +336,7 @@ public class RegisterManager {
      * 不需要手动调用该方法，在 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 自动注册
      */
     @SuppressWarnings("unchecked")
-    public void registerTESR(FMLInitializationEvent event) {
+    public void registerTESR() {
         for (Class<?> tesr : tesrRenderers) {
             TESRRegistry annotation = tesr.getAnnotation(TESRRegistry.class);
             TileEntitySpecialRenderer<? super TileEntity> instance;
@@ -366,9 +371,36 @@ public class RegisterManager {
         }
     }
 
+    /**
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 自动注册
+     */
     public void registerGuiHandlers() {
         for (Pair<Object, ModContainer> t : guiHandlers) {
             NetworkRegistry.INSTANCE.registerGuiHandler(t.getRight().getMod(), (IGuiHandler) t.getLeft());
+        }
+    }
+
+    /**
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 自动注册
+     */
+    public void registerSmeltable() {
+        for (Pair<Field, Object> p : smeltables) {
+            ItemStack input = null;
+            if (p.getRight() instanceof Item) {
+                input = new ItemStack((Item) p.getRight());
+            } else if (p.getRight() instanceof Block) {
+                input = new ItemStack((Block) p.getRight());
+            } else {
+                DawnFoundation.getLogger().warn("Field {} isn't Item or Block.Can't add smelting,ignore", p.getLeft().getName());
+                continue;
+            }
+            Smeltable smeltable = p.getLeft().getAnnotation(Smeltable.class);
+            Item output = Item.getByNameOrId(smeltable.result());
+            if (output == null) {
+                DawnFoundation.getLogger().warn("Can't find Item {},ignore", smeltable.result());
+                continue;
+            }
+            GameRegistry.addSmelting(input, new ItemStack(output, smeltable.resultCount()), smeltable.exp());
         }
     }
 

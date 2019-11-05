@@ -23,6 +23,7 @@ public class CommonProxy {
 
     public void init(FMLInitializationEvent event) {
         RegisterManager.getInstance().registerGuiHandlers();
+        RegisterManager.getInstance().registerSmeltable();
     }
 
     public void postInit(FMLPostInitializationEvent event) {

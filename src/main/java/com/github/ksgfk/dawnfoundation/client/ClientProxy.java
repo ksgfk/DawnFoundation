@@ -15,21 +15,21 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void init(FMLInitializationEvent event) {
         super.init(event);
-        RegisterManager.getInstance().registerTESR(event);
+        RegisterManager.getInstance().registerTESR();
     }
 
     @SubscribeEvent
     public static void bindEntitiesRenderer(ModelRegistryEvent event) {
-        RegisterManager.getInstance().bindEntityModel(event);
+        RegisterManager.getInstance().bindEntityModel();
     }
 
     @SubscribeEvent
     public static void registerItemModels(ModelRegistryEvent event) {
-        RegisterManager.getInstance().registerItemModel(event);
+        RegisterManager.getInstance().registerItemModel();
     }
 
     @SubscribeEvent
     public static void registerBlockModels(ModelRegistryEvent event) {
-        RegisterManager.getInstance().registerBlockModel(event);
+        RegisterManager.getInstance().registerBlockModel();
     }
 }

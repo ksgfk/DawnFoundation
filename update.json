@@ -9,10 +9,11 @@
     "0.0.4.2": "自定义模型注册",
     "0.0.5": "模仿Metadata注册多个Block、Item及模型但不使用Metadata",
     "0.0.6": "支持TileEntity、TESR自动注册",
-    "0.0.7": "自动注册GuiHandler类（好像没有什么用"
+    "0.0.7": "自动注册GuiHandler类（好像没有什么用",
+    "0.0.8": "自动注册熔炉熔炼"
   },
   "promos": {
-    "1.12.2-latest": "0.0.5",
-    "1.12.2-recommended": "0.0.5"
+    "1.12.2-latest": "0.0.7",
+    "1.12.2-recommended": "0.0.7"
   }
 }

@@ -6,12 +6,14 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 用于标记实现了 {@link net.minecraftforge.fml.common.network.IGuiHandler} 接口的类实例化后的字段（
- *
- * @author KSGFK create in 2019/11/4
+ * @author KSGFK create in 2019/11/5
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
-public @interface GuiHandler {
-    String modId();
+public @interface Smeltable {
+    String result();
+
+    int resultCount() default 1;
+
+    int exp() default 1;
 }
