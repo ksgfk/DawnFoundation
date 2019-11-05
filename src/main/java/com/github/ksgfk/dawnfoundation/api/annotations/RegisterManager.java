@@ -1,6 +1,7 @@
 package com.github.ksgfk.dawnfoundation.api.annotations;
 
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
+import com.github.ksgfk.dawnfoundation.api.utility.Action;
 import com.github.ksgfk.dawnfoundation.api.utility.Action3;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
@@ -57,6 +58,16 @@ public class RegisterManager {
     private Map<String, List<Block>> blockMap = new HashMap<>();
     private Map<String, List<Pair<EntityEntryBuilder<Entity>, EntityRegistry>>> entityMap = new HashMap<>();
     private Map<String, List<Pair<Class<? extends TileEntity>, TileEntityRegistry>>> tileEntityMap = new HashMap<>();
+
+    private long registeredItemCount = 0;
+    private long registeredBlockCount = 0;
+    private long registeredEntityCount = 0;
+    private long registeredTileEntityCount = 0;
+    private long registeredOreDictCount = 0;
+    private long registeredSmeltCount = 0;
+    private long registeredEntityRenderCount = 0;
+    private long registeredTESRCount = 0;
+    private long registeredGuiHandlerCount = 0;
 
     private RegisterManager() {
         registerBehavior.add(((domain, field, o) -> {
@@ -191,7 +202,7 @@ public class RegisterManager {
     }
 
     private static void registerItemModelList(List<Item> items) {
-        items.forEach(item -> {
+        for (Item item : items) {
             if (item instanceof IModelRegistry) {
                 ((IModelRegistry) item).registerModel();
             } else {
@@ -199,7 +210,7 @@ public class RegisterManager {
                         0,
                         new ModelResourceLocation(Objects.requireNonNull(item.getRegistryName()), "inventory"));
             }
-        });
+        }
     }
 
     /**
@@ -211,8 +222,10 @@ public class RegisterManager {
             Object o = p.getRight();
             if (o instanceof Item) {
                 OreDictionary.registerOre(oreDict.key(), (Item) o);
+                registeredOreDictCount += 1;
             } else if (o instanceof Block) {
                 OreDictionary.registerOre(oreDict.key(), (Block) o);
+                registeredOreDictCount += 1;
             } else {
                 DawnFoundation.getLogger().warn("Type {} is not supported register ore dict,ignore", o.getClass().getName());
             }
@@ -227,8 +240,11 @@ public class RegisterManager {
         for (Class<?> renderer : entityRenderers) {
             EntityRenderer annotation = renderer.getAnnotation(EntityRenderer.class);
             RenderingRegistry.registerEntityRenderingHandler(annotation.entityClass(), manager -> {
+                Render<? super Entity> r;
                 try {
-                    return (Render<? super Entity>) renderer.getConstructor(RenderManager.class).newInstance(manager);
+                    r = (Render<? super Entity>) renderer.getConstructor(RenderManager.class).newInstance(manager);
+                    registeredEntityRenderCount += 1;
+                    return r;
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new IllegalArgumentException("Can't construct renderer:" + renderer.getName(), e);
                 }
@@ -237,17 +253,23 @@ public class RegisterManager {
     }
 
     @SuppressWarnings("unchecked")
-    private <T extends IForgeRegistryEntry.Impl<T>> void registerFunction(T instance, RegistryEvent.Register<T> event) {
+    private <T extends IForgeRegistryEntry.Impl<T>> void registerFunction(T instance, RegistryEvent.Register<T> event, Action action) {
         if (instance instanceof IDomainName) {
             if (instance instanceof IMultiRegisters) {
                 List<IForgeRegistryEntry> o = ((IMultiRegisters) instance).getRegisters();
                 for (IForgeRegistryEntry i : o) {
                     i.setRegistryName(((IDomainName) i).getDomainName());
                     event.getRegistry().register((T) i);
+                    if (action != null) {
+                        action.invoke();
+                    }
                 }
             } else {
                 instance.setRegistryName(((IDomainName) instance).getDomainName());
                 event.getRegistry().register(instance);
+                if (action != null) {
+                    action.invoke();
+                }
             }
         } else {
             DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName,ignore", instance.getClass().getName());
@@ -264,7 +286,7 @@ public class RegisterManager {
         checkMap(modId, itemMap);
         checkMap(modId, blockMap);
         for (Item item : itemMap.get(modId)) {
-            registerFunction(item, event);
+            registerFunction(item, event, () -> registeredItemCount += 1);
         }
         for (Block b : blockMap.get(modId)) {
             if (b instanceof IDomainName) {
@@ -301,7 +323,7 @@ public class RegisterManager {
     public void registerBlocks(String modId, RegistryEvent.Register<Block> event) {
         checkMap(modId, blockMap);
         for (Block block : blockMap.get(modId)) {
-            registerFunction(block, event);
+            registerFunction(block, event, () -> registeredBlockCount += 1);
         }
     }
 
@@ -315,6 +337,7 @@ public class RegisterManager {
         checkMap(modId, entityMap);
         for (Pair<EntityEntryBuilder<Entity>, EntityRegistry> entityEntry : entityMap.get(modId)) {
             event.getRegistry().register(entityEntry.getLeft().build());
+            registeredEntityCount += 1;
         }
     }
 
@@ -329,6 +352,7 @@ public class RegisterManager {
         for (Pair<Class<? extends TileEntity>, TileEntityRegistry> tile : tileEntityMap.get(modId)) {
             TileEntityRegistry anno = tile.getRight();
             GameRegistry.registerTileEntity(tile.getLeft(), new ResourceLocation(anno.modId(), anno.name()));
+            registeredTileEntityCount += 1;
         }
     }
 
@@ -347,6 +371,7 @@ public class RegisterManager {
                 continue;
             }
             ClientRegistry.bindTileEntitySpecialRenderer(annotation.tileEntity(), instance);
+            registeredTESRCount += 1;
         }
     }
 
@@ -377,6 +402,7 @@ public class RegisterManager {
     public void registerGuiHandlers() {
         for (Pair<Object, ModContainer> t : guiHandlers) {
             NetworkRegistry.INSTANCE.registerGuiHandler(t.getRight().getMod(), (IGuiHandler) t.getLeft());
+            registeredGuiHandlerCount += 1;
         }
     }
 
@@ -401,6 +427,7 @@ public class RegisterManager {
                 continue;
             }
             GameRegistry.addSmelting(input, new ItemStack(output, smeltable.resultCount()), smeltable.exp());
+            registeredSmeltCount += 1;
         }
     }
 
@@ -419,5 +446,19 @@ public class RegisterManager {
      */
     public static void clean() {
         instance = null;
+    }
+
+    public void statistics() {
+        DawnFoundation.getLogger().info("------Register Info------");
+        DawnFoundation.getLogger().info("Item:\t\t\t{}", registeredItemCount);
+        DawnFoundation.getLogger().info("Block:\t\t{}", registeredBlockCount);
+        DawnFoundation.getLogger().info("Entity:\t\t{}", registeredEntityCount);
+        DawnFoundation.getLogger().info("OreDict:\t\t{}", registeredOreDictCount);
+        DawnFoundation.getLogger().info("TileEntity:\t{}", registeredTileEntityCount);
+        DawnFoundation.getLogger().info("Smelt:\t\t{}", registeredSmeltCount);
+        DawnFoundation.getLogger().info("EntityRender:\t{}", registeredEntityRenderCount);
+        DawnFoundation.getLogger().info("TESR:\t\t\t{}", registeredTESRCount);
+        DawnFoundation.getLogger().info("GuiHandler:\t{}", registeredGuiHandlerCount);
+        DawnFoundation.getLogger().info("-------------------------");
     }
 }

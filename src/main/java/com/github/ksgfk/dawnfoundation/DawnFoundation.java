@@ -54,6 +54,7 @@ public enum DawnFoundation {
 
     @Mod.EventHandler
     public void gameStart(FMLLoadCompleteEvent event) {
+        RegisterManager.getInstance().statistics();
         RegisterManager.clean();
         GithubReleaseUpdateCheck.getInstance().startCheck(MOD_ID, UPDATE, VERSION, true, logger, null);
     }

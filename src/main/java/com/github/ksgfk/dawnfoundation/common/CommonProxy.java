@@ -18,10 +18,10 @@ import net.minecraftforge.fml.common.registry.EntityEntry;
 public class CommonProxy {
     public void preInit(FMLPreInitializationEvent event) throws ClassNotFoundException, IllegalAccessException, NoSuchFieldException {
         RegisterManager.getInstance().processRegistries(event.getAsmData());
-        RegisterManager.getInstance().registerOreDict();
     }
 
     public void init(FMLInitializationEvent event) {
+        RegisterManager.getInstance().registerOreDict();
         RegisterManager.getInstance().registerGuiHandlers();
         RegisterManager.getInstance().registerSmeltable();
     }
