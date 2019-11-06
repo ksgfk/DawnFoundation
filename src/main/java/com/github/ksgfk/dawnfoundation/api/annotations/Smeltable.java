@@ -6,6 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * 熔炉熔炼
+ *
  * @author KSGFK create in 2019/11/5
  */
 @Retention(RetentionPolicy.RUNTIME)

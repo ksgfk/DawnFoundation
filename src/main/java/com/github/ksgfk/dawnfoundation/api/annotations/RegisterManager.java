@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
@@ -33,6 +34,7 @@ import net.minecraftforge.registries.IForgeRegistryEntry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -58,6 +60,7 @@ public class RegisterManager {
     private Map<String, List<Block>> blockMap = new HashMap<>();
     private Map<String, List<Pair<EntityEntryBuilder<Entity>, EntityRegistry>>> entityMap = new HashMap<>();
     private Map<String, List<Pair<Class<? extends TileEntity>, TileEntityRegistry>>> tileEntityMap = new HashMap<>();
+    private Map<String, List<Enchantment>> enchantMap = new HashMap<>();
 
     private long registeredItemCount = 0;
     private long registeredBlockCount = 0;
@@ -68,6 +71,7 @@ public class RegisterManager {
     private long registeredEntityRenderCount = 0;
     private long registeredTESRCount = 0;
     private long registeredGuiHandlerCount = 0;
+    private long registeredEnchantCount = 0;
 
     private RegisterManager() {
         registerBehavior.add(((domain, field, o) -> {
@@ -75,19 +79,23 @@ public class RegisterManager {
                 addToMap(domain, (Item) o, itemMap);
             } else if (o instanceof Block) {
                 addToMap(domain, (Block) o, blockMap);
+            } else if (o instanceof Enchantment) {
+                addToMap(domain, (Enchantment) o, enchantMap);
             } else {
-                DawnFoundation.getLogger().warn("Type {} is not supported auto register,ignore", o.getClass().getName());
-            }
-        }));
-        registerBehavior.add(((domain, field, o) -> {
-            if (field.isAnnotationPresent(OreDict.class)) {
-                oreDictElements.add(ImmutablePair.of(field, o));
+                DawnFoundation.getLogger().warn("Type {} is not supported auto register.Ignore", o.getClass().getName());
             }
         }));
         registerBehavior.add((domain, field, o) -> {
-            if (field.isAnnotationPresent(Smeltable.class)) {
-                smeltables.add(ImmutablePair.of(field, o));
+            if (!field.isAnnotationPresent(OreDict.class)) {
+                return;
             }
+            oreDictElements.add(ImmutablePair.of(field, o));
+        });
+        registerBehavior.add((domain, field, o) -> {
+            if (!field.isAnnotationPresent(Smeltable.class)) {
+                return;
+            }
+            smeltables.add(ImmutablePair.of(field, o));
         });
     }
 
@@ -227,7 +235,7 @@ public class RegisterManager {
                 OreDictionary.registerOre(oreDict.key(), (Block) o);
                 registeredOreDictCount += 1;
             } else {
-                DawnFoundation.getLogger().warn("Type {} is not supported register ore dict,ignore", o.getClass().getName());
+                DawnFoundation.getLogger().error("Type {} is not supported register ore dict.Ignore", o.getClass().getName());
             }
         }
     }
@@ -252,8 +260,12 @@ public class RegisterManager {
         }
     }
 
+    /**
+     * @deprecated 多种元素在同一类内注册没啥用
+     */
+    @Deprecated
     @SuppressWarnings("unchecked")
-    private <T extends IForgeRegistryEntry.Impl<T>> void registerFunction(T instance, RegistryEvent.Register<T> event, Action action) {
+    private static <T extends IForgeRegistryEntry.Impl<T>> void registerMultiElements(T instance, RegistryEvent.Register<T> event, Action action) {
         if (instance instanceof IDomainName) {
             if (instance instanceof IMultiRegisters) {
                 List<IForgeRegistryEntry> o = ((IMultiRegisters) instance).getRegisters();
@@ -272,7 +284,7 @@ public class RegisterManager {
                 }
             }
         } else {
-            DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName,ignore", instance.getClass().getName());
+            DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName.Ignore", instance.getClass().getName());
         }
     }
 
@@ -286,32 +298,16 @@ public class RegisterManager {
         checkMap(modId, itemMap);
         checkMap(modId, blockMap);
         for (Item item : itemMap.get(modId)) {
-            registerFunction(item, event, () -> registeredItemCount += 1);
+            registerEntry(item, event, () -> registeredItemCount += 1);
         }
         for (Block b : blockMap.get(modId)) {
             if (b instanceof IDomainName) {
-                if (b instanceof IMultiRegisters) {
-                    List o = ((IMultiRegisters) instance).getRegisters();
-                    for (Object block : o) {
-                        if (block instanceof Block) {
-                            event.getRegistry().register(getItemBlock((Block) block));
-                        } else {
-                            DawnFoundation.getLogger().warn("Type {} isn't Block,ignore", instance.getClass().getName());
-                        }
-                    }
-                } else {
-                    event.getRegistry().register(getItemBlock(b));
-                }
+                event.getRegistry().register(new ItemBlock(b).setRegistryName(((IDomainName) b).getDomainName()));
             } else {
-                DawnFoundation.getLogger().warn("Type {} unimplemented interface IDomainName,ignore", instance.getClass().getName());
+                DawnFoundation.getLogger().error("Block type {} unimplemented interface IDomainName.Ignore", b.getClass().getName());
+
             }
         }
-    }
-
-    private static ItemBlock getItemBlock(Block block) {
-        ItemBlock i = new ItemBlock(block);
-        i.setRegistryName(((IDomainName) block).getDomainName());
-        return i;
     }
 
     /**
@@ -323,7 +319,7 @@ public class RegisterManager {
     public void registerBlocks(String modId, RegistryEvent.Register<Block> event) {
         checkMap(modId, blockMap);
         for (Block block : blockMap.get(modId)) {
-            registerFunction(block, event, () -> registeredBlockCount += 1);
+            registerEntry(block, event, () -> registeredBlockCount += 1);
         }
     }
 
@@ -353,6 +349,31 @@ public class RegisterManager {
             TileEntityRegistry anno = tile.getRight();
             GameRegistry.registerTileEntity(tile.getLeft(), new ResourceLocation(anno.modId(), anno.name()));
             registeredTileEntityCount += 1;
+        }
+    }
+
+    /**
+     * 在 {@link net.minecraftforge.event.RegistryEvent.Register<Enchantment>} 阶段调用该方法
+     *
+     * @param modId 注册物品的modid
+     * @param event 注册事件
+     */
+    public void registerEnchantments(String modId, RegistryEvent.Register<Enchantment> event) {
+        checkMap(modId, enchantMap);
+        for (Enchantment enchantment : enchantMap.get(modId)) {
+            registerEntry(enchantment, event, () -> registeredEnchantCount += 1);
+        }
+    }
+
+    private static <T extends IForgeRegistryEntry.Impl<T>> void registerEntry(T entry, RegistryEvent.Register<T> event, @Nullable Action action) {
+        if (entry instanceof IDomainName) {
+            entry.setRegistryName(((IDomainName) entry).getDomainName());
+            event.getRegistry().register(entry);
+            if (action != null) {
+                action.invoke();
+            }
+        } else {
+            DawnFoundation.getLogger().error("Type {} unimplemented interface IDomainName.Ignore", entry.getClass().getName());
         }
     }
 
@@ -411,19 +432,19 @@ public class RegisterManager {
      */
     public void registerSmeltable() {
         for (Pair<Field, Object> p : smeltables) {
-            ItemStack input = null;
+            ItemStack input;
             if (p.getRight() instanceof Item) {
                 input = new ItemStack((Item) p.getRight());
             } else if (p.getRight() instanceof Block) {
                 input = new ItemStack((Block) p.getRight());
             } else {
-                DawnFoundation.getLogger().warn("Field {} isn't Item or Block.Can't add smelting,ignore", p.getLeft().getName());
+                DawnFoundation.getLogger().error("Field {} isn't Item or Block.Can't add smelting.Ignore", p.getLeft().getName());
                 continue;
             }
             Smeltable smeltable = p.getLeft().getAnnotation(Smeltable.class);
             Item output = Item.getByNameOrId(smeltable.result());
             if (output == null) {
-                DawnFoundation.getLogger().warn("Can't find Item {},ignore", smeltable.result());
+                DawnFoundation.getLogger().error("Can't find Item {},ignore", smeltable.result());
                 continue;
             }
             GameRegistry.addSmelting(input, new ItemStack(output, smeltable.resultCount()), smeltable.exp());
@@ -459,6 +480,7 @@ public class RegisterManager {
         DawnFoundation.getLogger().info("EntityRender:\t{}", registeredEntityRenderCount);
         DawnFoundation.getLogger().info("TESR:\t\t\t{}", registeredTESRCount);
         DawnFoundation.getLogger().info("GuiHandler:\t{}", registeredGuiHandlerCount);
+        DawnFoundation.getLogger().info("Enchant:\t\t{}", registeredEnchantCount);
         DawnFoundation.getLogger().info("-------------------------");
     }
 }

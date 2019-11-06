@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 自动注册拥有该注解的类下的字段
+ * 自动注册拥有该注解的类下的字段，目前支持Item、Block、Enchantment
  *
  * @author KSGFK create in 2019/10/21
  */

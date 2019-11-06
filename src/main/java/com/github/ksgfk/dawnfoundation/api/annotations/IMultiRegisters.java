@@ -10,6 +10,7 @@ import java.util.List;
  *
  * @author KSGFK create in 2019/11/3
  */
+@Deprecated
 public interface IMultiRegisters<T extends IForgeRegistryEntry<T>> {
     @Nonnull
     List<T> getRegisters();
