@@ -16,6 +16,7 @@ public class ClientProxy extends CommonProxy {
     public void init(FMLInitializationEvent event) {
         super.init(event);
         RegisterManager.getInstance().registerTESR();
+        RegisterManager.getInstance().registerKeyBindings();
     }
 
     @SubscribeEvent

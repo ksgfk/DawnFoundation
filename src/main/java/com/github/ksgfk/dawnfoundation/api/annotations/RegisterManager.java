@@ -18,8 +18,10 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionType;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.DimensionType;
 import net.minecraft.world.biome.Biome;
 import net.minecraftforge.client.model.ModelLoader;
+import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.client.registry.RenderingRegistry;
@@ -59,6 +61,7 @@ public class RegisterManager {
     private List<Pair<Object, ModContainer>> guiHandlers = new LinkedList<>();
     private List<Pair<Field, Object>> smeltables = new LinkedList<>();
     private List<KeyBinding> keyBindings = new LinkedList<>();
+    private List<DimensionRegistry> dims = new LinkedList<>();
 
     private Map<String, List<Item>> itemMap = new HashMap<>();
     private Map<String, List<Block>> blockMap = new HashMap<>();
@@ -81,6 +84,7 @@ public class RegisterManager {
     private long registeredPotionCount = 0;
     private long registeredPotionTypeCount = 0;
     private long registeredKeyBindingCount = 0;
+    private long registeredDimCount = 0;
 
     private boolean isClient;
 
@@ -138,6 +142,7 @@ public class RegisterManager {
         entitiesRegistries(asmDataTable);
         tileEntityRegistries(asmDataTable);
         processGuiHandler(asmDataTable);
+        dimRegistries(asmDataTable);
     }
 
     private void normalRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException, IllegalAccessException {
@@ -498,6 +503,23 @@ public class RegisterManager {
         registeredKeyBindingCount += keyBindings.size();
     }
 
+    private void dimRegistries(ASMDataTable asmDataTable) throws ClassNotFoundException {
+        for (ASMDataTable.ASMData asmData : asmDataTable.getAll(DimensionRegistry.class.getName())) {
+            dims.add(Class.forName(asmData.getClassName()).getAnnotation(DimensionRegistry.class));
+        }
+    }
+
+    /**
+     * 不需要手动调用该方法，在 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 自动注册
+     */
+    public void registerDimension() {
+        for (DimensionRegistry dim : dims) {
+            DimensionType dimType = DimensionType.register(dim.name(), dim.suffix(), dim.id(), dim.provider(), dim.keepLoaded());
+            DimensionManager.registerDimension(dim.id(), dimType);
+            registeredDimCount += 1;
+        }
+    }
+
     private static <T> void checkMap(String modId, Map<String, T> map) {
         if (!map.containsKey(modId)) {
             throw new IllegalArgumentException("Can't find MOD ID:" + modId);
@@ -526,6 +548,7 @@ public class RegisterManager {
         DawnFoundation.getLogger().info("Enchant:\t\t{}", registeredEnchantCount);
         DawnFoundation.getLogger().info("Potion:\t\t{}", registeredPotionCount);
         DawnFoundation.getLogger().info("PotionType:\t{}", registeredPotionTypeCount);
+        DawnFoundation.getLogger().info("Dim:\t\t\t{}", registeredDimCount);
         if (isClient) {
             DawnFoundation.getLogger().info("EntityRender:\t{}", registeredEntityRenderCount);
             DawnFoundation.getLogger().info("TESR:\t\t\t{}", registeredTESRCount);
