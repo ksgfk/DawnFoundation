@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
@@ -57,6 +58,7 @@ public class RegisterManager {
     private List<Class<?>> tesrRenderers = new LinkedList<>();
     private List<Pair<Object, ModContainer>> guiHandlers = new LinkedList<>();
     private List<Pair<Field, Object>> smeltables = new LinkedList<>();
+    private List<KeyBinding> keyBindings = new LinkedList<>();
 
     private Map<String, List<Item>> itemMap = new HashMap<>();
     private Map<String, List<Block>> blockMap = new HashMap<>();
@@ -78,8 +80,12 @@ public class RegisterManager {
     private long registeredEnchantCount = 0;
     private long registeredPotionCount = 0;
     private long registeredPotionTypeCount = 0;
+    private long registeredKeyBindingCount = 0;
+
+    private boolean isClient;
 
     private RegisterManager() {
+        isClient = FMLCommonHandler.instance().getEffectiveSide().isClient();
         registerBehavior.add(((domain, field, o) -> {
             if (o instanceof Item) {
                 addToMap(domain, (Item) o, itemMap);
@@ -106,6 +112,11 @@ public class RegisterManager {
                 return;
             }
             smeltables.add(ImmutablePair.of(field, o));
+        });
+        registerBehavior.add((domain, field, o) -> {
+            if (isClient) {
+                keyBindings.add((KeyBinding) o);
+            }
         });
     }
 
@@ -147,7 +158,7 @@ public class RegisterManager {
             Class<? extends Entity> e = clz.asSubclass(Entity.class);
             entityClasses.add(e);
         }
-        if (FMLCommonHandler.instance().getEffectiveSide().isClient()) {
+        if (isClient) {
             for (ASMDataTable.ASMData asmData : asmDataTable.getAll(EntityRenderer.class.getName())) {
                 Class<?> clz = Class.forName(asmData.getClassName());
                 entityRenderers.add(clz);
@@ -189,7 +200,7 @@ public class RegisterManager {
             TileEntityRegistry anno = clz.getAnnotation(TileEntityRegistry.class);
             addToMap(anno.modId(), ImmutablePair.of(e, anno), tileEntityMap);
         }
-        if (FMLCommonHandler.instance().getEffectiveSide().isClient()) {
+        if (isClient) {
             for (ASMDataTable.ASMData asmData : asmDataTable.getAll(TESRRegistry.class.getName())) {
                 Class<?> clz = Class.forName(asmData.getClassName());
                 tesrRenderers.add(clz);
@@ -479,6 +490,14 @@ public class RegisterManager {
         }
     }
 
+    /**
+     * 不需要手动调用该方法，在客户端的 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 自动注册
+     */
+    public void registerKeyBindings() {
+        keyBindings.forEach(ClientRegistry::registerKeyBinding);
+        registeredKeyBindingCount += keyBindings.size();
+    }
+
     private static <T> void checkMap(String modId, Map<String, T> map) {
         if (!map.containsKey(modId)) {
             throw new IllegalArgumentException("Can't find MOD ID:" + modId);
@@ -504,12 +523,15 @@ public class RegisterManager {
         DawnFoundation.getLogger().info("OreDict:\t\t{}", registeredOreDictCount);
         DawnFoundation.getLogger().info("TileEntity:\t{}", registeredTileEntityCount);
         DawnFoundation.getLogger().info("Smelt:\t\t{}", registeredSmeltCount);
-        DawnFoundation.getLogger().info("EntityRender:\t{}", registeredEntityRenderCount);
-        DawnFoundation.getLogger().info("TESR:\t\t\t{}", registeredTESRCount);
-        DawnFoundation.getLogger().info("GuiHandler:\t{}", registeredGuiHandlerCount);
         DawnFoundation.getLogger().info("Enchant:\t\t{}", registeredEnchantCount);
         DawnFoundation.getLogger().info("Potion:\t\t{}", registeredPotionCount);
         DawnFoundation.getLogger().info("PotionType:\t{}", registeredPotionTypeCount);
+        if (isClient) {
+            DawnFoundation.getLogger().info("EntityRender:\t{}", registeredEntityRenderCount);
+            DawnFoundation.getLogger().info("TESR:\t\t\t{}", registeredTESRCount);
+            DawnFoundation.getLogger().info("GuiHandler:\t{}", registeredGuiHandlerCount);
+            DawnFoundation.getLogger().info("KeyBind:\t{}", registeredKeyBindingCount);
+        }
         DawnFoundation.getLogger().info("-------------------------");
     }
 }
