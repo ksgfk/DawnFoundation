@@ -13,6 +13,8 @@ import net.minecraft.entity.Entity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
+import net.minecraft.potion.Potion;
+import net.minecraft.potion.PotionType;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.Biome;
@@ -61,6 +63,8 @@ public class RegisterManager {
     private Map<String, List<Pair<EntityEntryBuilder<Entity>, EntityRegistry>>> entityMap = new HashMap<>();
     private Map<String, List<Pair<Class<? extends TileEntity>, TileEntityRegistry>>> tileEntityMap = new HashMap<>();
     private Map<String, List<Enchantment>> enchantMap = new HashMap<>();
+    private Map<String, List<Potion>> potionMap = new HashMap<>();
+    private Map<String, List<PotionType>> potionTypeMap = new HashMap<>();
 
     private long registeredItemCount = 0;
     private long registeredBlockCount = 0;
@@ -72,6 +76,8 @@ public class RegisterManager {
     private long registeredTESRCount = 0;
     private long registeredGuiHandlerCount = 0;
     private long registeredEnchantCount = 0;
+    private long registeredPotionCount = 0;
+    private long registeredPotionTypeCount = 0;
 
     private RegisterManager() {
         registerBehavior.add(((domain, field, o) -> {
@@ -81,6 +87,10 @@ public class RegisterManager {
                 addToMap(domain, (Block) o, blockMap);
             } else if (o instanceof Enchantment) {
                 addToMap(domain, (Enchantment) o, enchantMap);
+            } else if (o instanceof Potion) {
+                addToMap(domain, (Potion) o, potionMap);
+            } else if (o instanceof PotionType) {
+                addToMap(domain, (PotionType) o, potionTypeMap);
             } else {
                 DawnFoundation.getLogger().warn("Type {} is not supported auto register.Ignore", o.getClass().getName());
             }
@@ -103,7 +113,7 @@ public class RegisterManager {
         if (map.containsKey(key)) {
             map.get(key).add(value);
         } else {
-            List<T> l = new ArrayList<>();
+            List<T> l = new LinkedList<>();
             l.add(value);
             map.put(key, l);
         }
@@ -295,17 +305,13 @@ public class RegisterManager {
      * @param event 注册事件
      */
     public void registerItems(String modId, RegistryEvent.Register<Item> event) {
-        checkMap(modId, itemMap);
+        register(modId, itemMap, event, () -> registeredItemCount += 1);
         checkMap(modId, blockMap);
-        for (Item item : itemMap.get(modId)) {
-            registerEntry(item, event, () -> registeredItemCount += 1);
-        }
         for (Block b : blockMap.get(modId)) {
             if (b instanceof IDomainName) {
                 event.getRegistry().register(new ItemBlock(b).setRegistryName(((IDomainName) b).getDomainName()));
             } else {
                 DawnFoundation.getLogger().error("Block type {} unimplemented interface IDomainName.Ignore", b.getClass().getName());
-
             }
         }
     }
@@ -317,10 +323,7 @@ public class RegisterManager {
      * @param event 注册事件
      */
     public void registerBlocks(String modId, RegistryEvent.Register<Block> event) {
-        checkMap(modId, blockMap);
-        for (Block block : blockMap.get(modId)) {
-            registerEntry(block, event, () -> registeredBlockCount += 1);
-        }
+        register(modId, blockMap, event, () -> registeredBlockCount += 1);
     }
 
     /**
@@ -359,10 +362,27 @@ public class RegisterManager {
      * @param event 注册事件
      */
     public void registerEnchantments(String modId, RegistryEvent.Register<Enchantment> event) {
-        checkMap(modId, enchantMap);
-        for (Enchantment enchantment : enchantMap.get(modId)) {
-            registerEntry(enchantment, event, () -> registeredEnchantCount += 1);
-        }
+        register(modId, enchantMap, event, () -> registeredEnchantCount += 1);
+    }
+
+    /**
+     * 在 {@link net.minecraftforge.event.RegistryEvent.Register<Potion>} 阶段调用该方法
+     *
+     * @param modId 注册物品的modid
+     * @param event 注册事件
+     */
+    public void registerPotions(String modId, RegistryEvent.Register<Potion> event) {
+        register(modId, potionMap, event, () -> registeredPotionCount += 1);
+    }
+
+    /**
+     * 在 {@link net.minecraftforge.event.RegistryEvent.Register<PotionType>} 阶段调用该方法
+     *
+     * @param modId 注册物品的modid
+     * @param event 注册事件
+     */
+    public void registerPotionTypes(String modId, RegistryEvent.Register<PotionType> event) {
+        register(modId, potionTypeMap, event, () -> registeredPotionTypeCount += 1);
     }
 
     private static <T extends IForgeRegistryEntry.Impl<T>> void registerEntry(T entry, RegistryEvent.Register<T> event, @Nullable Action action) {
@@ -374,6 +394,13 @@ public class RegisterManager {
             }
         } else {
             DawnFoundation.getLogger().error("Type {} unimplemented interface IDomainName.Ignore", entry.getClass().getName());
+        }
+    }
+
+    private static <T extends IForgeRegistryEntry.Impl<T>> void register(String modId, Map<String, List<T>> map, RegistryEvent.Register<T> event, @Nullable Action action) {
+        checkMap(modId, map);
+        for (T potion : map.get(modId)) {
+            registerEntry(potion, event, action);
         }
     }
 
@@ -481,6 +508,8 @@ public class RegisterManager {
         DawnFoundation.getLogger().info("TESR:\t\t\t{}", registeredTESRCount);
         DawnFoundation.getLogger().info("GuiHandler:\t{}", registeredGuiHandlerCount);
         DawnFoundation.getLogger().info("Enchant:\t\t{}", registeredEnchantCount);
+        DawnFoundation.getLogger().info("Potion:\t\t{}", registeredPotionCount);
+        DawnFoundation.getLogger().info("PotionType:\t{}", registeredPotionTypeCount);
         DawnFoundation.getLogger().info("-------------------------");
     }
 }
