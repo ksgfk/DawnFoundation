@@ -21,10 +21,7 @@ public class CommonProxy {
     }
 
     public void init(FMLInitializationEvent event) {
-        RegisterManager.getInstance().registerOreDict();
-        RegisterManager.getInstance().registerGuiHandlers();
-        RegisterManager.getInstance().registerSmeltable();
-        RegisterManager.getInstance().registerDimension();
+        RegisterManager.getInstance().registerDimensionType();
     }
 
     public void postInit(FMLPostInitializationEvent event) {

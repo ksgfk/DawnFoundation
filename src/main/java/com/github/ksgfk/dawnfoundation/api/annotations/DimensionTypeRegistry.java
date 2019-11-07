@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface DimensionRegistry {
+public @interface DimensionTypeRegistry {
     /**
      * 维度数字ID
      */
@@ -27,11 +27,6 @@ public @interface DimensionRegistry {
      * 用于村庄的后缀
      */
     String suffix();
-
-    /**
-     * 该维度使用的 {@link WorldProvider}。要求这个类有零参构造器。
-     */
-    Class<? extends WorldProvider> provider();
 
     /**
      * 是否保持该维度的 spawn 区块一直加载

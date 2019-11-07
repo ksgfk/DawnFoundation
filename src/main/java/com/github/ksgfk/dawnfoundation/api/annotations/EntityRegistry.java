@@ -1,7 +1,5 @@
 package com.github.ksgfk.dawnfoundation.api.annotations;
 
-import net.minecraft.entity.EnumCreatureType;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -16,6 +14,8 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface EntityRegistry {
     String modId();
+
+    boolean hasCustomFunction();
 
     /**
      * 字符串ID
@@ -43,18 +43,8 @@ public @interface EntityRegistry {
      */
     int eggColor2() default -1;
 
-    /**
-     * 若此项返回false，则creatureType、weight、min、max、biomes参数无效
-     */
-    boolean canNaturalGenerate();
-
-    EnumCreatureType creatureType() default EnumCreatureType.AMBIENT;
-
-    int weight() default -1;
-
-    int min() default -1;
-
-    int max() default -1;
-
-    String[] biomes() default "";
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    public @interface Custom {
+    }
 }
