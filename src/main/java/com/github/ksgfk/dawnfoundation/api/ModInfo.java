@@ -14,6 +14,7 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionType;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.SoundEvent;
 import net.minecraft.world.biome.Biome;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.registry.EntityEntry;
@@ -49,6 +50,7 @@ public final class ModInfo {
     private List<Class<? extends TileEntity>> tileEntities = null;
     private List<VillagerRegistry.VillagerProfession> villager = new LinkedList<>();
     private List<Biome> biomes = new LinkedList<>();
+    private List<SoundEvent> sounds = new LinkedList<>();
     //Client
     private List<Object> guiHandlers = null;
     private List<KeyBinding> keyBindings = null;
@@ -108,6 +110,10 @@ public final class ModInfo {
         return biomes;
     }
 
+    public List<SoundEvent> getSounds() {
+        return sounds;
+    }
+
     public static Builder create() {
         return new Builder();
     }
@@ -139,6 +145,8 @@ public final class ModInfo {
                     info.villager.add((VillagerRegistry.VillagerProfession) o);
                 } else if (o instanceof Biome) {
                     info.biomes.add((Biome) o);
+                } else if (o instanceof SoundEvent) {
+                    info.sounds.add((SoundEvent) o);
                 } else {
                     DawnFoundation.getLogger().warn("Type {} is not supported auto register.Ignore", o.getClass().getName());
                 }

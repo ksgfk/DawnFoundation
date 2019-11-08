@@ -17,6 +17,7 @@ import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionType;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.SoundEvent;
 import net.minecraft.world.DimensionType;
 import net.minecraft.world.WorldProvider;
 import net.minecraft.world.biome.Biome;
@@ -265,6 +266,10 @@ public class RegisterManager {
 
     public static void registerBiome(ModInfo info, RegistryEvent.Register<Biome> event) {
         registerGeneric(info.getBiomes(), event);
+    }
+
+    public static void registerSoundEvent(ModInfo info, RegistryEvent.Register<SoundEvent> event) {
+        registerGeneric(info.getSounds(), event);
     }
 
     public static void registerOreDict(ModInfo info) {
