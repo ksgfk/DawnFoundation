@@ -1,7 +1,5 @@
 package com.github.ksgfk.dawnfoundation.api.annotations;
 
-import net.minecraft.world.WorldProvider;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

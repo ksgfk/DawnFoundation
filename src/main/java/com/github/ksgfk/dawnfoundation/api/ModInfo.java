@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
  * @author KSGFK create in 2019/11/6
  */
 public final class ModInfo {
+    private String modId;
     private List<Item> items = new LinkedList<>();
     private List<Block> blocks = new LinkedList<>();
     private List<Enchantment> enchants = new LinkedList<>();
@@ -56,6 +57,10 @@ public final class ModInfo {
     private List<KeyBinding> keyBindings = null;
 
     private ModInfo() {
+    }
+
+    public String getModId() {
+        return modId;
     }
 
     public List<Item> getItems() {
@@ -188,8 +193,9 @@ public final class ModInfo {
                 getThisModEntityRegistriesFromManager();
                 getThisModTileEntityRegistriesFromManager();
                 getThisModGuiHandlerFromManager();
+                info.modId = modId;
             } catch (IllegalAccessException e) {
-                e.printStackTrace();
+                throw new IllegalArgumentException(e);
             }
             return info;
         }

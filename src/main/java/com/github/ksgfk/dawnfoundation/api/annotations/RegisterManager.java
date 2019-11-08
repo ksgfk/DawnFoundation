@@ -37,6 +37,7 @@ import net.minecraftforge.fml.common.registry.VillagerRegistry;
 import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.registries.IForgeRegistryEntry;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.logging.log4j.Logger;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -192,7 +193,7 @@ public class RegisterManager {
     }
 
     /**
-     * 在 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 阶段注册
+     * 在 {@link net.minecraftforge.fml.common.event.FMLInitializationEvent} 阶段自动注册
      */
     public void registerDimensionType() {
         for (Class<? extends WorldProvider> dim : dimType) {
@@ -336,24 +337,29 @@ public class RegisterManager {
         instance = null;
     }
 
-//    public void statistics() {
-//        DawnFoundation.getLogger().info("------Register Info------");
-//        DawnFoundation.getLogger().info("Item:\t\t\t{}", registeredItemCount);
-//        DawnFoundation.getLogger().info("Block:\t\t{}", registeredBlockCount);
-//        DawnFoundation.getLogger().info("Entity:\t\t{}", registeredEntityCount);
-//        DawnFoundation.getLogger().info("OreDict:\t\t{}", registeredOreDictCount);
-//        DawnFoundation.getLogger().info("TileEntity:\t{}", registeredTileEntityCount);
-//        DawnFoundation.getLogger().info("Smelt:\t\t{}", registeredSmeltCount);
-//        DawnFoundation.getLogger().info("Enchant:\t\t{}", registeredEnchantCount);
-//        DawnFoundation.getLogger().info("Potion:\t\t{}", registeredPotionCount);
-//        DawnFoundation.getLogger().info("PotionType:\t{}", registeredPotionTypeCount);
-//        DawnFoundation.getLogger().info("Dim:\t\t\t{}", registeredDimCount);
-//        if (isClient) {
-//            DawnFoundation.getLogger().info("EntityRender:\t{}", registeredEntityRenderCount);
-//            DawnFoundation.getLogger().info("TESR:\t\t\t{}", registeredTESRCount);
-//            DawnFoundation.getLogger().info("GuiHandler:\t{}", registeredGuiHandlerCount);
-//            DawnFoundation.getLogger().info("KeyBind:\t{}", registeredKeyBindingCount);
-//        }
-//        DawnFoundation.getLogger().info("-------------------------");
-//    }
+    public static void printStatistics(ModInfo info, Logger logger) {
+        logger.info("------Register Info------");
+        logger.info("Mod id:{}", info.getModId());
+        printStatistic("Item", logger, info.getItems());
+        printStatistic("Block", logger, info.getBlocks());
+        printStatistic("Ore Dict", logger, info.getOreDicts());
+        printStatistic("Smelt", logger, info.getSmeltables());
+        printStatistic("Entity", logger, info.getEntities());
+        printStatistic("TileEntity", logger, info.getTileEntities());
+        printStatistic("Enchantment", logger, info.getEnchantments());
+        printStatistic("Potion", logger, info.getPotions());
+        printStatistic("PotionType", logger, info.getPotionTypes());
+        printStatistic("Biome", logger, info.getBiomes());
+        printStatistic("Sound", logger, info.getSounds());
+        printStatistic("Villager", logger, info.getVillager());
+        if (instance.isClient) {
+            printStatistic("Gui Handler", logger, info.getGuiHandlers());
+            printStatistic("Key Bind", logger, info.getKeyBindings());
+        }
+        logger.info("-------------------------");
+    }
+
+    private static void printStatistic(String prefix, Logger logger, List list) {
+        logger.info("{}:{}", prefix, list.size());
+    }
 }
