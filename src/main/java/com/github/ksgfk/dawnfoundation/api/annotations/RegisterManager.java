@@ -2,7 +2,6 @@ package com.github.ksgfk.dawnfoundation.api.annotations;
 
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
 import com.github.ksgfk.dawnfoundation.api.ModInfo;
-import com.github.ksgfk.dawnfoundation.api.utility.Action;
 import com.github.ksgfk.dawnfoundation.api.utility.Action1;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
@@ -40,11 +39,9 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
