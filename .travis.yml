@@ -1,7 +1,9 @@
 language: java
 jdk:
- - openjdk8
-install:
- - chmod u+x gradlew
- - ./gradlew setupDecompWorkspace
-script: ./gradlew build
+  - openjdk8
+#install:
+#  - chmod u+x gradlew
+#  - ./gradlew setupDecompWorkspace
+script:
+  - chmod u+x gradlew
+  - ./gradlew build
