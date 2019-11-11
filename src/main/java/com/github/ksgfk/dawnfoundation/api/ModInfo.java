@@ -130,18 +130,13 @@ public class ModInfo {
     }
 
     public static final class Builder {
-        private List<BoolFunction1<IForgeRegistryEntry>> freResponsibleChain = new ArrayList<>();
+        private List<Pair<BoolFunction1<IForgeRegistryEntry>, Class<? extends IForgeRegistryEntry>>> freResponsibleChain = new ArrayList<>();
         private List<BiConsumer<Field, IForgeRegistryEntry>> registerBehavior = new ArrayList<>();
         private ModInfo info;
         private String modId;
 
-        private static boolean filterRegistry(IForgeRegistryEntry obj, Class<? extends IForgeRegistryEntry> clazz, Map<Class<? extends IForgeRegistryEntry>, List<IForgeRegistryEntry>> map) {
-            if (clazz.isInstance(obj)) {
-                CommonUtility.addNoRepeatListVToMapKV(clazz, obj, map, LinkedList::new);
-                return true;
-            } else {
-                return false;
-            }
+        private static boolean filterRegistry(IForgeRegistryEntry obj, Class<? extends IForgeRegistryEntry> clazz) {
+            return clazz.isInstance(obj);
         }
 
         private Builder() {
@@ -151,18 +146,22 @@ public class ModInfo {
                 info.keyBindings = new LinkedList<>();
             }
 
-            freResponsibleChain.add(o -> filterRegistry(o, Item.class, info.entries));
-            freResponsibleChain.add(o -> filterRegistry(o, Block.class, info.entries));
-            freResponsibleChain.add(o -> filterRegistry(o, Enchantment.class, info.entries));
-            freResponsibleChain.add(o -> filterRegistry(o, Potion.class, info.entries));
-            freResponsibleChain.add(o -> filterRegistry(o, PotionType.class, info.entries));
-            freResponsibleChain.add(o -> filterRegistry(o, VillagerRegistry.VillagerProfession.class, info.entries));
-            freResponsibleChain.add(o -> filterRegistry(o, Biome.class, info.entries));
-            freResponsibleChain.add(o -> filterRegistry(o, SoundEvent.class, info.entries));
+            addResponsibleChain(Item.class);
+            addResponsibleChain(Block.class);
+            addResponsibleChain(Enchantment.class);
+            addResponsibleChain(Potion.class);
+            addResponsibleChain(PotionType.class);
+            addResponsibleChain(VillagerRegistry.VillagerProfession.class);
+            addResponsibleChain(Biome.class);
+            addResponsibleChain(SoundEvent.class);
 
             registerBehavior.add(((field, o) -> {
-                for (BoolFunction1<IForgeRegistryEntry> func : freResponsibleChain) {
-                    if (func.invoke(o)) {
+                for (Pair<BoolFunction1<IForgeRegistryEntry>, Class<? extends IForgeRegistryEntry>> func : freResponsibleChain) {
+                    if (func.getLeft().invoke(o)) {
+                        if (func.getRight() == null) {
+                            continue;
+                        }
+                        CommonUtility.addNoRepeatListVToMapKV(func.getRight(), o, info.entries, LinkedList::new);
                         break;
                     }
                 }
@@ -198,13 +197,29 @@ public class ModInfo {
             return this;
         }
 
-        public Builder addResponsibleChain(BoolFunction1<IForgeRegistryEntry> func) {
-            freResponsibleChain.add(func);
+        /**
+         * 向责任链末尾添加新责任，自定义责任规则
+         *
+         * @param clazz 实现 {@link IForgeRegistryEntry} 的类，作为索引
+         * @param func  责任规则
+         */
+        public Builder addResponsibleChain(@Nullable Class<? extends IForgeRegistryEntry> clazz, @Nonnull BoolFunction1<IForgeRegistryEntry> func) {
+            freResponsibleChain.add(ImmutablePair.of(func, clazz));
+            return this;
+        }
+
+        /**
+         * 向责任链末尾添加新责任
+         *
+         * @param clazz 实现 {@link IForgeRegistryEntry} 的类，作为索引
+         */
+        public Builder addResponsibleChain(Class<? extends IForgeRegistryEntry> clazz) {
+            addResponsibleChain(clazz, o -> filterRegistry(o, clazz));
             return this;
         }
 
         public ModInfo build() {
-            freResponsibleChain.add(o -> {
+            addResponsibleChain(null, o -> {
                 DawnFoundation.getLogger().warn("Type {} is not supported auto register.Ignore", o.getClass().getName());
                 return false;
             });

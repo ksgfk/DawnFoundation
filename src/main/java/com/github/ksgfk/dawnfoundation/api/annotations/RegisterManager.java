@@ -2,7 +2,6 @@ package com.github.ksgfk.dawnfoundation.api.annotations;
 
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
 import com.github.ksgfk.dawnfoundation.api.ModInfo;
-import com.github.ksgfk.dawnfoundation.api.utility.Action1;
 import com.github.ksgfk.dawnfoundation.api.utility.CommonUtility;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
@@ -45,6 +44,7 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
@@ -102,10 +102,10 @@ public class RegisterManager {
         }
     }
 
-    private static void findASMData(ASMDataTable asmDataTable, String annoName, Action1<Class<?>> act) throws ClassNotFoundException {
+    private static void findASMData(ASMDataTable asmDataTable, String annoName, Consumer<Class<?>> act) throws ClassNotFoundException {
         for (ASMDataTable.ASMData asmData : asmDataTable.getAll(annoName)) {
             Class<?> clazz = Class.forName(asmData.getClassName(), false, Thread.currentThread().getContextClassLoader());
-            act.invoke(clazz);
+            act.accept(clazz);
         }
     }
 
