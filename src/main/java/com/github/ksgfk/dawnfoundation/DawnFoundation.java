@@ -30,7 +30,7 @@ public enum DawnFoundation {
     public static final String CLIENT = "com.github.ksgfk.dawnfoundation.client.ClientProxy";
     public static final String COMMON = "com.github.ksgfk.dawnfoundation.common.CommonProxy";
     public static final String UPDATE = "https://api.github.com/repos/ksgfk/DawnFoundation/releases";
-    public static final String RELEASE = "https://github.com/ksgfk/DawnFoundation/blob/master/update.json";
+    public static final String RELEASE = "https://gist.githubusercontent.com/ksgfk/6c006ae70170325229a8a443b2952544/raw/31ab749d803e8cd29e9586b4ee619b867ba73fad/update.json";
 
     private static Logger logger = LogManager.getLogger(MOD_ID);
 
