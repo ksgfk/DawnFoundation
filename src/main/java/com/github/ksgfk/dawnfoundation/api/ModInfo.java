@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 public class ModInfo {
     private String modId;
     private boolean isClient;
-    private Map<Class<?>, List<IForgeRegistryEntry>> entries = new HashMap<>();
+    private Map<Class<? extends IForgeRegistryEntry>, List<IForgeRegistryEntry>> entries = new HashMap<>();
     private List<Pair<OreDict, Object>> oreDicts = new LinkedList<>();
     private List<Pair<Smeltable, Object>> smeltables = new LinkedList<>();
     private List<Class<? extends TileEntity>> tileEntities = null;
@@ -56,12 +56,12 @@ public class ModInfo {
 
     @Nullable
     @SuppressWarnings("unchecked")
-    public <T extends IForgeRegistryEntry.Impl<T>> List<T> getElements(Class<T> clazz) {
+    public <T extends IForgeRegistryEntry<T>> List<T> getElements(Class<T> clazz) {
         List<IForgeRegistryEntry> l = entries.get(clazz);
         return l == null ? null : l.stream().map((e) -> (T) e).collect(Collectors.toList());
     }
 
-    public Map<Class<?>, List<IForgeRegistryEntry>> getEntries() {
+    public Map<Class<? extends IForgeRegistryEntry>, List<IForgeRegistryEntry>> getEntries() {
         return entries;
     }
 
@@ -135,7 +135,7 @@ public class ModInfo {
         private ModInfo info;
         private String modId;
 
-        private static boolean filterRegistry(IForgeRegistryEntry obj, Class<?> clazz, Map<Class<?>, List<IForgeRegistryEntry>> map) {
+        private static boolean filterRegistry(IForgeRegistryEntry obj, Class<? extends IForgeRegistryEntry> clazz, Map<Class<? extends IForgeRegistryEntry>, List<IForgeRegistryEntry>> map) {
             if (clazz.isInstance(obj)) {
                 CommonUtility.addNoRepeatListVToMapKV(clazz, obj, map, LinkedList::new);
                 return true;

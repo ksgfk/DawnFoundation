@@ -60,7 +60,7 @@ public class RegisterManager {
     private Map<String, List<Class<?>>> registryMap = new HashMap<>();
     private Map<String, List<Class<? extends Entity>>> entityRegistryMap = new HashMap<>();
     private Map<String, List<Class<? extends TileEntity>>> tileEntityRegistryMap = new HashMap<>();
-    private Map<String, List<Object>> guiHandlerMap = null;
+    private Map<String, List<Object>> guiHandlerMap;
     private List<Class<?>> entityRenders = new LinkedList<>();
     private List<Class<?>> tesrRenders = new LinkedList<>();
     private List<Class<? extends WorldProvider>> dimType = new LinkedList<>();
@@ -69,9 +69,7 @@ public class RegisterManager {
 
     private RegisterManager() {
         isClient = FMLCommonHandler.instance().getEffectiveSide().isClient();
-        if (isClient) {
-            guiHandlerMap = new HashMap<>();
-        }
+        guiHandlerMap = new HashMap<>();
     }
 
     private static <T> void addToMap(String key, T value, Map<String, List<T>> map) {
@@ -97,10 +95,10 @@ public class RegisterManager {
             Class<? extends WorldProvider> wp = clazz.asSubclass(WorldProvider.class);
             dimType.add(wp);
         });
+        findGuiHandler(asmDataTable);
         if (isClient) {
             findASMData(asmDataTable, EntityRenderer.class.getName(), entityRenders::add);
             findASMData(asmDataTable, TESRRegistry.class.getName(), tesrRenders::add);
-            findGuiHandler(asmDataTable);
         }
     }
 
@@ -338,14 +336,14 @@ public class RegisterManager {
     public static void printStatistics(ModInfo info, Logger logger) {
         logger.info("------Register Info------");
         logger.info("Mod id:{}", info.getModId());
-        for (Map.Entry<Class<?>, List<IForgeRegistryEntry>> entry : info.getEntries().entrySet()) {
+        for (Map.Entry<Class<? extends IForgeRegistryEntry>, List<IForgeRegistryEntry>> entry : info.getEntries().entrySet()) {
             logger.info("{}:{}", entry.getKey().getName(), entry.getValue().size());
         }
         printStatistic("Ore Dict", logger, info.getOreDicts());
         printStatistic("Smelt", logger, info.getSmeltables());
         printStatistic("TileEntity", logger, info.getTileEntities());
+        printStatistic("Gui Handler", logger, info.getGuiHandlers());
         if (info.isClient()) {
-            printStatistic("Gui Handler", logger, info.getGuiHandlers());
             printStatistic("Key Bind", logger, info.getKeyBindings());
         }
         logger.info("-------------------------");
