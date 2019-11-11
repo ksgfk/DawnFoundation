@@ -7,8 +7,8 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 
 import javax.annotation.Nullable;
-import java.util.Arrays;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * @author KSGFK create in 2019/11/10
@@ -58,5 +58,9 @@ public class CommonUtility {
         if (!player.world.isRemote && canReturnHealth) {
             player.heal(health);
         }
+    }
+
+    public static <K, V> void addNoRepeatListVToMapKV(K key, V value, Map<K, List<V>> map, Supplier<List<V>> allocFunc) {
+        map.computeIfAbsent(key, k -> allocFunc.get()).add(value);
     }
 }

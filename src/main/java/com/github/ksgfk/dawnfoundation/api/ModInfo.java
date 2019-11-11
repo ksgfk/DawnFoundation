@@ -3,6 +3,7 @@ package com.github.ksgfk.dawnfoundation.api;
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
 import com.github.ksgfk.dawnfoundation.api.annotations.*;
 import com.github.ksgfk.dawnfoundation.api.utility.BoolFunction1;
+import com.github.ksgfk.dawnfoundation.api.utility.CommonUtility;
 import net.minecraft.block.Block;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.enchantment.Enchantment;
@@ -18,21 +19,18 @@ import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.registry.EntityEntry;
 import net.minecraftforge.fml.common.registry.EntityEntryBuilder;
 import net.minecraftforge.fml.common.registry.VillagerRegistry;
+import net.minecraftforge.registries.IForgeRegistryEntry;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -41,18 +39,10 @@ import java.util.stream.Collectors;
 public class ModInfo {
     private String modId;
     private boolean isClient;
-    private List<Item> items = new LinkedList<>();
-    private List<Block> blocks = new LinkedList<>();
-    private List<Enchantment> enchants = new LinkedList<>();
-    private List<Potion> potions = new LinkedList<>();
-    private List<PotionType> potionTypes = new LinkedList<>();
+    private Map<Class<?>, List<IForgeRegistryEntry>> entries = new HashMap<>();
     private List<Pair<OreDict, Object>> oreDicts = new LinkedList<>();
     private List<Pair<Smeltable, Object>> smeltables = new LinkedList<>();
-    private List<EntityEntry> entities = null;
     private List<Class<? extends TileEntity>> tileEntities = null;
-    private List<VillagerRegistry.VillagerProfession> villager = new LinkedList<>();
-    private List<Biome> biomes = new LinkedList<>();
-    private List<SoundEvent> sounds = new LinkedList<>();
     //Client
     private List<Object> guiHandlers = null;
     private List<KeyBinding> keyBindings = null;
@@ -64,24 +54,35 @@ public class ModInfo {
         return modId;
     }
 
+    @Nullable
+    @SuppressWarnings("unchecked")
+    public <T extends IForgeRegistryEntry.Impl<T>> List<T> getElements(Class<T> clazz) {
+        List<IForgeRegistryEntry> l = entries.get(clazz);
+        return l == null ? null : l.stream().map((e) -> (T) e).collect(Collectors.toList());
+    }
+
+    public Map<Class<?>, List<IForgeRegistryEntry>> getEntries() {
+        return entries;
+    }
+
     public List<Item> getItems() {
-        return items;
+        return getElements(Item.class);
     }
 
     public List<Block> getBlocks() {
-        return blocks;
+        return getElements(Block.class);
     }
 
     public List<Enchantment> getEnchantments() {
-        return enchants;
+        return getElements(Enchantment.class);
     }
 
     public List<Potion> getPotions() {
-        return potions;
+        return getElements(Potion.class);
     }
 
     public List<PotionType> getPotionTypes() {
-        return potionTypes;
+        return getElements(PotionType.class);
     }
 
     public List<Pair<OreDict, Object>> getOreDicts() {
@@ -93,7 +94,7 @@ public class ModInfo {
     }
 
     public List<EntityEntry> getEntities() {
-        return entities;
+        return getElements(EntityEntry.class);
     }
 
     public List<Class<? extends TileEntity>> getTileEntities() {
@@ -109,15 +110,15 @@ public class ModInfo {
     }
 
     public List<VillagerRegistry.VillagerProfession> getVillager() {
-        return villager;
+        return getElements(VillagerRegistry.VillagerProfession.class);
     }
 
     public List<Biome> getBiomes() {
-        return biomes;
+        return getElements(Biome.class);
     }
 
     public List<SoundEvent> getSounds() {
-        return sounds;
+        return getElements(SoundEvent.class);
     }
 
     public boolean isClient() {
@@ -129,15 +130,14 @@ public class ModInfo {
     }
 
     public static final class Builder {
-        private List<BoolFunction1<Object>> freResponsibleChain = new ArrayList<>();
-        private List<BiConsumer<Field, Object>> registerBehavior = new ArrayList<>();
+        private List<BoolFunction1<IForgeRegistryEntry>> freResponsibleChain = new ArrayList<>();
+        private List<BiConsumer<Field, IForgeRegistryEntry>> registerBehavior = new ArrayList<>();
         private ModInfo info;
         private String modId;
 
-        @SuppressWarnings("unchecked")
-        private static <T> boolean filterRegistry(Object obj, Class<T> clazz, List<T> target) {
+        private static boolean filterRegistry(IForgeRegistryEntry obj, Class<?> clazz, Map<Class<?>, List<IForgeRegistryEntry>> map) {
             if (clazz.isInstance(obj)) {
-                target.add((T) obj);
+                CommonUtility.addNoRepeatListVToMapKV(clazz, obj, map, LinkedList::new);
                 return true;
             } else {
                 return false;
@@ -151,17 +151,17 @@ public class ModInfo {
                 info.keyBindings = new LinkedList<>();
             }
 
-            freResponsibleChain.add(o -> filterRegistry(o, Item.class, info.items));
-            freResponsibleChain.add(o -> filterRegistry(o, Block.class, info.blocks));
-            freResponsibleChain.add(o -> filterRegistry(o, Enchantment.class, info.enchants));
-            freResponsibleChain.add(o -> filterRegistry(o, Potion.class, info.potions));
-            freResponsibleChain.add(o -> filterRegistry(o, PotionType.class, info.potionTypes));
-            freResponsibleChain.add(o -> filterRegistry(o, VillagerRegistry.VillagerProfession.class, info.villager));
-            freResponsibleChain.add(o -> filterRegistry(o, Biome.class, info.biomes));
-            freResponsibleChain.add(o -> filterRegistry(o, SoundEvent.class, info.sounds));
+            freResponsibleChain.add(o -> filterRegistry(o, Item.class, info.entries));
+            freResponsibleChain.add(o -> filterRegistry(o, Block.class, info.entries));
+            freResponsibleChain.add(o -> filterRegistry(o, Enchantment.class, info.entries));
+            freResponsibleChain.add(o -> filterRegistry(o, Potion.class, info.entries));
+            freResponsibleChain.add(o -> filterRegistry(o, PotionType.class, info.entries));
+            freResponsibleChain.add(o -> filterRegistry(o, VillagerRegistry.VillagerProfession.class, info.entries));
+            freResponsibleChain.add(o -> filterRegistry(o, Biome.class, info.entries));
+            freResponsibleChain.add(o -> filterRegistry(o, SoundEvent.class, info.entries));
 
             registerBehavior.add(((field, o) -> {
-                for (BoolFunction1<Object> func : freResponsibleChain) {
+                for (BoolFunction1<IForgeRegistryEntry> func : freResponsibleChain) {
                     if (func.invoke(o)) {
                         break;
                     }
@@ -188,7 +188,7 @@ public class ModInfo {
             });
         }
 
-        public Builder addRegisterBehavior(@Nonnull BiConsumer<Field, Object> act) {
+        public Builder addRegisterBehavior(@Nonnull BiConsumer<Field, IForgeRegistryEntry> act) {
             registerBehavior.add(act);
             return this;
         }
@@ -198,7 +198,7 @@ public class ModInfo {
             return this;
         }
 
-        public Builder addResponsibleChain(BoolFunction1<Object> func) {
+        public Builder addResponsibleChain(BoolFunction1<IForgeRegistryEntry> func) {
             freResponsibleChain.add(func);
             return this;
         }
@@ -229,8 +229,12 @@ public class ModInfo {
                         continue;
                     }
                     Object elementInstance = element.get(null);
-                    for (BiConsumer<Field, Object> act : registerBehavior) {
-                        act.accept(element, elementInstance);
+                    for (BiConsumer<Field, IForgeRegistryEntry> act : registerBehavior) {
+                        if (elementInstance instanceof IForgeRegistryEntry) {
+                            act.accept(element, (IForgeRegistryEntry) elementInstance);
+                        } else {
+                            DawnFoundation.getLogger().error("Field {}(Type:{}) isn't implement IForgeRegistryEntry.Maybe it's a bug!", element.getName(), elementInstance.getClass().getName());
+                        }
                     }
                 }
             }
@@ -238,7 +242,7 @@ public class ModInfo {
 
         private void getThisModEntityRegistriesFromManager() {
             List<Class<? extends Entity>> registries = Optional.ofNullable(RegisterManager.getInstance().getEntityRegistries(modId)).orElseThrow(IllegalArgumentException::new);
-            info.entities = registries.stream()
+            List<IForgeRegistryEntry> entry = registries.stream()
                     .map(clazz -> {
                         EntityRegistry anno = clazz.getAnnotation(EntityRegistry.class);
                         if (anno.hasCustomFunction()) {
@@ -280,6 +284,7 @@ public class ModInfo {
                         }
                     })
                     .collect(Collectors.toList());
+            info.entries.put(EntityEntry.class, entry);
         }
 
         private void getThisModTileEntityRegistriesFromManager() {

@@ -3,6 +3,7 @@ package com.github.ksgfk.dawnfoundation.api.annotations;
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
 import com.github.ksgfk.dawnfoundation.api.ModInfo;
 import com.github.ksgfk.dawnfoundation.api.utility.Action1;
+import com.github.ksgfk.dawnfoundation.api.utility.CommonUtility;
 import net.minecraft.block.Block;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.entity.Render;
@@ -74,13 +75,7 @@ public class RegisterManager {
     }
 
     private static <T> void addToMap(String key, T value, Map<String, List<T>> map) {
-        if (map.containsKey(key)) {
-            map.get(key).add(value);
-        } else {
-            List<T> l = new LinkedList<>();
-            l.add(value);
-            map.put(key, l);
-        }
+        CommonUtility.addNoRepeatListVToMapKV(key, value, map, LinkedList::new);
     }
 
     public void processRegistries(ASMDataTable asmDataTable) throws IllegalAccessException, ClassNotFoundException, NoSuchFieldException {
@@ -227,7 +222,10 @@ public class RegisterManager {
         }
     }
 
-    public static <T extends IForgeRegistryEntry<T>> void registerEntry(List<T> list, RegistryEvent.Register<T> event) {
+    public static <T extends IForgeRegistryEntry<T>> void registerEntry(@Nullable List<T> list, RegistryEvent.Register<T> event) {
+        if (list == null) {
+            return;
+        }
         for (T e : list) {
             event.getRegistry().register(e);
         }
@@ -340,18 +338,12 @@ public class RegisterManager {
     public static void printStatistics(ModInfo info, Logger logger) {
         logger.info("------Register Info------");
         logger.info("Mod id:{}", info.getModId());
-        printStatistic("Item", logger, info.getItems());
-        printStatistic("Block", logger, info.getBlocks());
+        for (Map.Entry<Class<?>, List<IForgeRegistryEntry>> entry : info.getEntries().entrySet()) {
+            logger.info("{}:{}", entry.getKey().getName(), entry.getValue().size());
+        }
         printStatistic("Ore Dict", logger, info.getOreDicts());
         printStatistic("Smelt", logger, info.getSmeltables());
-        printStatistic("Entity", logger, info.getEntities());
         printStatistic("TileEntity", logger, info.getTileEntities());
-        printStatistic("Enchantment", logger, info.getEnchantments());
-        printStatistic("Potion", logger, info.getPotions());
-        printStatistic("PotionType", logger, info.getPotionTypes());
-        printStatistic("Biome", logger, info.getBiomes());
-        printStatistic("Sound", logger, info.getSounds());
-        printStatistic("Villager", logger, info.getVillager());
         if (info.isClient()) {
             printStatistic("Gui Handler", logger, info.getGuiHandlers());
             printStatistic("Key Bind", logger, info.getKeyBindings());
