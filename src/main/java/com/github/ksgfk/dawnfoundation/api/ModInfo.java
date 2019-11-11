@@ -1,10 +1,8 @@
 package com.github.ksgfk.dawnfoundation.api;
 
 import com.github.ksgfk.dawnfoundation.DawnFoundation;
-import com.github.ksgfk.dawnfoundation.api.annotations.EntityRegistry;
-import com.github.ksgfk.dawnfoundation.api.annotations.OreDict;
-import com.github.ksgfk.dawnfoundation.api.annotations.RegisterManager;
-import com.github.ksgfk.dawnfoundation.api.annotations.Smeltable;
+import com.github.ksgfk.dawnfoundation.api.annotations.*;
+import com.github.ksgfk.dawnfoundation.api.utility.BoolFunction1;
 import net.minecraft.block.Block;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.enchantment.Enchantment;
@@ -33,13 +31,16 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * @author KSGFK create in 2019/11/6
  */
-public final class ModInfo {
+public class ModInfo {
     private String modId;
+    private boolean isClient;
     private List<Item> items = new LinkedList<>();
     private List<Block> blocks = new LinkedList<>();
     private List<Enchantment> enchants = new LinkedList<>();
@@ -119,41 +120,51 @@ public final class ModInfo {
         return sounds;
     }
 
+    public boolean isClient() {
+        return isClient;
+    }
+
     public static Builder create() {
         return new Builder();
     }
 
-    public static class Builder {
+    public static final class Builder {
+        private List<BoolFunction1<Object>> freResponsibleChain = new ArrayList<>();
         private List<BiConsumer<Field, Object>> registerBehavior = new ArrayList<>();
         private ModInfo info;
-        private boolean isClient;
         private String modId;
+
+        @SuppressWarnings("unchecked")
+        private static <T> boolean filterRegistry(Object obj, Class<T> clazz, List<T> target) {
+            if (clazz.isInstance(obj)) {
+                target.add((T) obj);
+                return true;
+            } else {
+                return false;
+            }
+        }
 
         private Builder() {
             info = new ModInfo();
-            isClient = FMLCommonHandler.instance().getEffectiveSide().isClient();
-            if (isClient) {
+            info.isClient = FMLCommonHandler.instance().getEffectiveSide().isClient();
+            if (info.isClient) {
                 info.keyBindings = new LinkedList<>();
             }
+
+            freResponsibleChain.add(o -> filterRegistry(o, Item.class, info.items));
+            freResponsibleChain.add(o -> filterRegistry(o, Block.class, info.blocks));
+            freResponsibleChain.add(o -> filterRegistry(o, Enchantment.class, info.enchants));
+            freResponsibleChain.add(o -> filterRegistry(o, Potion.class, info.potions));
+            freResponsibleChain.add(o -> filterRegistry(o, PotionType.class, info.potionTypes));
+            freResponsibleChain.add(o -> filterRegistry(o, VillagerRegistry.VillagerProfession.class, info.villager));
+            freResponsibleChain.add(o -> filterRegistry(o, Biome.class, info.biomes));
+            freResponsibleChain.add(o -> filterRegistry(o, SoundEvent.class, info.sounds));
+
             registerBehavior.add(((field, o) -> {
-                if (o instanceof Item) {
-                    info.items.add((Item) o);
-                } else if (o instanceof Block) {
-                    info.blocks.add((Block) o);
-                } else if (o instanceof Enchantment) {
-                    info.enchants.add((Enchantment) o);
-                } else if (o instanceof Potion) {
-                    info.potions.add((Potion) o);
-                } else if (o instanceof PotionType) {
-                    info.potionTypes.add((PotionType) o);
-                } else if (o instanceof VillagerRegistry.VillagerProfession) {
-                    info.villager.add((VillagerRegistry.VillagerProfession) o);
-                } else if (o instanceof Biome) {
-                    info.biomes.add((Biome) o);
-                } else if (o instanceof SoundEvent) {
-                    info.sounds.add((SoundEvent) o);
-                } else {
-                    DawnFoundation.getLogger().warn("Type {} is not supported auto register.Ignore", o.getClass().getName());
+                for (BoolFunction1<Object> func : freResponsibleChain) {
+                    if (func.invoke(o)) {
+                        break;
+                    }
                 }
             }));
             registerBehavior.add((field, o) -> {
@@ -169,7 +180,7 @@ public final class ModInfo {
                 info.smeltables.add(ImmutablePair.of(field.getAnnotation(Smeltable.class), o));
             });
             registerBehavior.add((field, o) -> {
-                if (isClient) {
+                if (info.isClient) {
                     if (o instanceof KeyBinding) {
                         info.keyBindings.add((KeyBinding) o);
                     }
@@ -187,7 +198,16 @@ public final class ModInfo {
             return this;
         }
 
+        public Builder addResponsibleChain(BoolFunction1<Object> func) {
+            freResponsibleChain.add(func);
+            return this;
+        }
+
         public ModInfo build() {
+            freResponsibleChain.add(o -> {
+                DawnFoundation.getLogger().warn("Type {} is not supported auto register.Ignore", o.getClass().getName());
+                return false;
+            });
             try {
                 getThisModRegistriesFromManager();
                 getThisModEntityRegistriesFromManager();
@@ -204,6 +224,10 @@ public final class ModInfo {
             List<Class<?>> registries = Optional.ofNullable(RegisterManager.getInstance().getRegistries(modId)).orElseThrow(IllegalArgumentException::new);
             for (Class<?> registry : registries) {
                 for (Field element : registry.getFields()) {
+                    if (element.isAnnotationPresent(Skip.class)) {
+                        DawnFoundation.getLogger().info("Skip Field:{},Type:{}", element.getName(), element.getType().getName());
+                        continue;
+                    }
                     Object elementInstance = element.get(null);
                     for (BiConsumer<Field, Object> act : registerBehavior) {
                         act.accept(element, elementInstance);

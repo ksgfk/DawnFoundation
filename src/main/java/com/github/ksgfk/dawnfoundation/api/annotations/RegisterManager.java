@@ -227,50 +227,50 @@ public class RegisterManager {
         }
     }
 
-    public static <T extends IForgeRegistryEntry<T>> void registerGeneric(List<T> list, RegistryEvent.Register<T> event) {
+    public static <T extends IForgeRegistryEntry<T>> void registerEntry(List<T> list, RegistryEvent.Register<T> event) {
         for (T e : list) {
             event.getRegistry().register(e);
         }
     }
 
     public static void registerItem(ModInfo info, RegistryEvent.Register<Item> event) {
-        registerGeneric(info.getItems(), event);
-        registerGeneric(info.getBlocks().stream()
+        registerEntry(info.getItems(), event);
+        registerEntry(info.getBlocks().stream()
                         .map(block -> new ItemBlock(block).setRegistryName(Objects.requireNonNull((block.getRegistryName()))))
                         .collect(Collectors.toList()),
                 event);
     }
 
     public static void registerBlock(ModInfo info, RegistryEvent.Register<Block> event) {
-        registerGeneric(info.getBlocks(), event);
+        registerEntry(info.getBlocks(), event);
     }
 
     public static void registerEnchantment(ModInfo info, RegistryEvent.Register<Enchantment> event) {
-        registerGeneric(info.getEnchantments(), event);
+        registerEntry(info.getEnchantments(), event);
     }
 
     public static void registerPotion(ModInfo info, RegistryEvent.Register<Potion> event) {
-        registerGeneric(info.getPotions(), event);
+        registerEntry(info.getPotions(), event);
     }
 
     public static void registerPotionType(ModInfo info, RegistryEvent.Register<PotionType> event) {
-        registerGeneric(info.getPotionTypes(), event);
+        registerEntry(info.getPotionTypes(), event);
     }
 
     public static void registerEntity(ModInfo info, RegistryEvent.Register<EntityEntry> event) {
-        registerGeneric(info.getEntities(), event);
+        registerEntry(info.getEntities(), event);
     }
 
     public static void registerVillager(ModInfo info, RegistryEvent.Register<VillagerRegistry.VillagerProfession> event) {
-        registerGeneric(info.getVillager(), event);
+        registerEntry(info.getVillager(), event);
     }
 
     public static void registerBiome(ModInfo info, RegistryEvent.Register<Biome> event) {
-        registerGeneric(info.getBiomes(), event);
+        registerEntry(info.getBiomes(), event);
     }
 
     public static void registerSoundEvent(ModInfo info, RegistryEvent.Register<SoundEvent> event) {
-        registerGeneric(info.getSounds(), event);
+        registerEntry(info.getSounds(), event);
     }
 
     public static void registerOreDict(ModInfo info) {
@@ -352,7 +352,7 @@ public class RegisterManager {
         printStatistic("Biome", logger, info.getBiomes());
         printStatistic("Sound", logger, info.getSounds());
         printStatistic("Villager", logger, info.getVillager());
-        if (instance.isClient) {
+        if (info.isClient()) {
             printStatistic("Gui Handler", logger, info.getGuiHandlers());
             printStatistic("Key Bind", logger, info.getKeyBindings());
         }
