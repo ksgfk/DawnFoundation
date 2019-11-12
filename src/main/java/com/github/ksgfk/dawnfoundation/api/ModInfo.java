@@ -166,19 +166,19 @@ public class ModInfo {
                     }
                 }
             }));
-            registerBehavior.add((field, o) -> {
+            addRegisterBehavior((field, o) -> {
                 if (!field.isAnnotationPresent(OreDict.class)) {
                     return;
                 }
                 info.oreDicts.add(ImmutablePair.of(field.getAnnotation(OreDict.class), o));
             });
-            registerBehavior.add((field, o) -> {
+            addRegisterBehavior((field, o) -> {
                 if (!field.isAnnotationPresent(Smeltable.class)) {
                     return;
                 }
                 info.smeltables.add(ImmutablePair.of(field.getAnnotation(Smeltable.class), o));
             });
-            registerBehavior.add((field, o) -> {
+            addRegisterBehavior((field, o) -> {
                 if (info.isClient) {
                     if (o instanceof KeyBinding) {
                         info.keyBindings.add((KeyBinding) o);
@@ -236,7 +236,10 @@ public class ModInfo {
         }
 
         private void getThisModRegistriesFromManager() throws IllegalAccessException {
-            List<Class<?>> registries = Optional.ofNullable(RegisterManager.getInstance().getRegistries(modId)).orElseThrow(IllegalArgumentException::new);
+            List<Class<?>> registries = Optional.ofNullable(RegisterManager.getInstance().getRegistries(modId)).orElseGet(() -> {
+                DawnFoundation.getLogger().warn("Mod {} can't find Registry Annotation", modId);
+                return new LinkedList<>();
+            });
             for (Class<?> registry : registries) {
                 for (Field element : registry.getFields()) {
                     if (element.isAnnotationPresent(Skip.class)) {
@@ -256,7 +259,10 @@ public class ModInfo {
         }
 
         private void getThisModEntityRegistriesFromManager() {
-            List<Class<? extends Entity>> registries = Optional.ofNullable(RegisterManager.getInstance().getEntityRegistries(modId)).orElseThrow(IllegalArgumentException::new);
+            List<Class<? extends Entity>> registries = Optional.ofNullable(RegisterManager.getInstance().getEntityRegistries(modId)).orElseGet(() -> {
+                DawnFoundation.getLogger().warn("Mod {} can't find EntityRegistry Annotation", modId);
+                return new LinkedList<>();
+            });
             List<IForgeRegistryEntry> entry = registries.stream()
                     .map(clazz -> {
                         EntityRegistry anno = clazz.getAnnotation(EntityRegistry.class);
